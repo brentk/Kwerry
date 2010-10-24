@@ -37,6 +37,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	private $_currentRow = 0;
 	private $_recordset = array();
 
+	public static $_column_query;
+	public static $_fk_query;
+	public static $_ref_query;
+
+
 	/** Attmps to find a model on the path. If on is not found, attempts
 	 * to create a vanilla model by examining the database schema.
 	 *
@@ -45,7 +50,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	object	Model object
 	 */
 	static function model( $tableName ) {
-		//echo "->model( $tableName )\n";
 
 		//If there's a model in the path, load that
 		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
@@ -60,10 +64,10 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 		//If not, create one on the fly
 		$kwerry = new Kwerry( $tableName );
+		return( $kwerry );
 	}
 
 	function __construct( $tableName ) {
-		//echo "->construct( $tableName )\n";
 
 		$conn = pg_connect( "host=localhost port=5432 dbname=bkellydb user=brentkelly password=5uck@$$" );
 		$this->setConn( $conn );
@@ -76,26 +80,27 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$obTable->setName( $tableName );
 		$this->setTable( $obTable );
 
-		$sql = "SELECT * FROM information_schema.columns WHERE table_name = $1";
-		$sql = "SELECT pg_attribute.attnum, pg_attribute.attname AS field, pg_type.typname AS type, 
-				pg_attribute.attlen AS length, pg_attribute.atttypmod AS lengthvar, 
-				pg_attribute.attnotnull AS notnull, pg_index.indisunique AS unique_key,
-                                pg_index.indisprimary AS primary_key
-                        FROM pg_class
-                        INNER JOIN pg_attribute ON pg_class.oid = pg_attribute.attrelid
-                        INNER JOIN pg_type ON pg_attribute.atttypid = pg_type.oid
-                        LEFT OUTER JOIN pg_index ON (
-                                pg_class.oid = pg_index.indrelid AND
-                                pg_index.indrelid = pg_attribute.attrelid AND
-                                pg_attribute.attnum = pg_index.indkey[pg_attribute.attnum-1]
-                                )
-                        WHERE
-                        pg_class.relname = $1
-                        and pg_attribute.attnum > 0
-                        ORDER BY pg_attribute.attnum";
+		if( ! Kwerry::$_column_query ) {
+			$sql = "SELECT pg_attribute.attnum, pg_attribute.attname AS field, pg_type.typname AS type, 
+					pg_attribute.attlen AS length, pg_attribute.atttypmod AS lengthvar, 
+					pg_attribute.attnotnull AS notnull, pg_index.indisunique AS unique_key,
+					pg_index.indisprimary AS primary_key
+				FROM pg_class
+				INNER JOIN pg_attribute ON pg_class.oid = pg_attribute.attrelid
+				INNER JOIN pg_type ON pg_attribute.atttypid = pg_type.oid
+				LEFT OUTER JOIN pg_index ON (
+					pg_class.oid = pg_index.indrelid AND
+					pg_index.indrelid = pg_attribute.attrelid AND
+					pg_attribute.attnum = pg_index.indkey[pg_attribute.attnum-1]
+					)
+				WHERE
+				pg_class.relname = $1
+				and pg_attribute.attnum > 0
+				ORDER BY pg_attribute.attnum";
 
-		$res = pg_prepare( $this->getConn(), "column_list", $sql );
-		$result = pg_execute( $this->getConn(), "column_list", array( $this->getTable()->getName() ) );
+			Kwerry::$_column_query = pg_prepare( $this->getConn(), "column_query", $sql );
+		}
+		$result = pg_execute( $this->getConn(), "column_query", array( $this->getTable()->getName() ) );
 		$aryColumns = pg_fetch_all( $result );
 
 		if( $aryColumns === false ) {
@@ -110,75 +115,82 @@ class Kwerry implements arrayaccess, iterator, countable {
 			}
 		}
 
-		//Lifted verbatim from propel
-		$sql = "SELECT conname, confupdtype, confdeltype, 
-			CASE nl.nspname WHEN 'public' THEN cl.relname 
-			ELSE nl.nspname||'.'||cl.relname END as fktab,
-			a2.attname as fkcol,
-			CASE nr.nspname WHEN 'public' THEN cr.relname 
-			ELSE nr.nspname||'.'||cr.relname END as reftab,
-			a1.attname as refcol
-			FROM pg_constraint ct
-			JOIN pg_class cl ON cl.oid=conrelid
-			JOIN pg_class cr ON cr.oid=confrelid
-			JOIN pg_namespace nl ON nl.oid = cl.relnamespace
-			JOIN pg_namespace nr ON nr.oid = cr.relnamespace
-			LEFT JOIN pg_catalog.pg_attribute a1 ON a1.attrelid = ct.confrelid
-			LEFT JOIN pg_catalog.pg_attribute a2 ON a2.attrelid = ct.conrelid
-			WHERE contype='f'
-			AND cl.relname = $1
-			AND a2.attnum = ct.conkey[1]
-			AND a1.attnum = ct.confkey[1]
-			ORDER BY conname"; 
+		if( ! Kwerry::$_fk_query ) {
+			//Lifted verbatim from propel
+			$sql = "SELECT conname, confupdtype, confdeltype, 
+				CASE nl.nspname WHEN 'public' THEN cl.relname 
+				ELSE nl.nspname||'.'||cl.relname END as fktab,
+				a2.attname as fkcol,
+				CASE nr.nspname WHEN 'public' THEN cr.relname 
+				ELSE nr.nspname||'.'||cr.relname END as reftab,
+				a1.attname as refcol
+				FROM pg_constraint ct
+				JOIN pg_class cl ON cl.oid=conrelid
+				JOIN pg_class cr ON cr.oid=confrelid
+				JOIN pg_namespace nl ON nl.oid = cl.relnamespace
+				JOIN pg_namespace nr ON nr.oid = cr.relnamespace
+				LEFT JOIN pg_catalog.pg_attribute a1 ON a1.attrelid = ct.confrelid
+				LEFT JOIN pg_catalog.pg_attribute a2 ON a2.attrelid = ct.conrelid
+				WHERE contype='f'
+				AND cl.relname = $1
+				AND a2.attnum = ct.conkey[1]
+				AND a1.attnum = ct.confkey[1]
+				ORDER BY conname"; 
 
-		$res = pg_prepare( $this->getConn(), "fk_list", $sql );
-		$result = pg_execute( $this->getConn(), "fk_list", array( $this->getTable()->getName() ) );
+			Kwerry::$_fk_query = pg_prepare( $this->getConn(), "fk_query", $sql );
+		}
+		$result = pg_execute( $this->getConn(), "fk_query", array( $this->getTable()->getName() ) );
 		$aryFK = pg_fetch_all( $result );
 
-		foreach( $aryFK as $fk ) {
+		if( $aryFK !== false ) {
+			foreach( $aryFK as $fk ) {
 
-			$obFK = new FK();
-			$obFK->_name	= $fk[ "fkcol" ];
-			$obFK->_fktable	= $fk[ "reftab" ];
-			$obFK->_fkname	= $fk[ "refcol" ];
+				$obFK = new FK();
+				$obFK->_name	= $fk[ "fkcol" ];
+				$obFK->_fktable	= $fk[ "reftab" ];
+				$obFK->_fkname	= $fk[ "refcol" ];
 
-			$this->getTable()->_fk[] = $obFK;
+				$this->getTable()->_fk[] = $obFK;
 
+			}
 		}
 
-		//Lifted verbatim from propel
-		$sql = "SELECT conname, confupdtype, confdeltype, 
-			CASE nl.nspname WHEN 'public' THEN cl.relname 
-			ELSE nl.nspname||'.'||cl.relname END as fktab,
-			a2.attname as fkcol,
-			CASE nr.nspname WHEN 'public' THEN cr.relname 
-			ELSE nr.nspname||'.'||cr.relname END as reftab,
-			a1.attname as refcol
-			FROM pg_constraint ct
-			JOIN pg_class cl ON cl.oid=conrelid
-			JOIN pg_class cr ON cr.oid=confrelid
-			JOIN pg_namespace nl ON nl.oid = cl.relnamespace
-			JOIN pg_namespace nr ON nr.oid = cr.relnamespace
-			LEFT JOIN pg_catalog.pg_attribute a1 ON a1.attrelid = ct.confrelid
-			LEFT JOIN pg_catalog.pg_attribute a2 ON a2.attrelid = ct.conrelid
-			WHERE contype='f'
-			AND cr.relname = $1
-			AND a2.attnum = ct.conkey[1]
-			AND a1.attnum = ct.confkey[1]
-			ORDER BY conname"; 
+		if( ! Kwerry::$_ref_query ) {
+			//Lifted verbatim from propel
+			$sql = "SELECT conname, confupdtype, confdeltype, 
+				CASE nl.nspname WHEN 'public' THEN cl.relname 
+				ELSE nl.nspname||'.'||cl.relname END as fktab,
+				a2.attname as fkcol,
+				CASE nr.nspname WHEN 'public' THEN cr.relname 
+				ELSE nr.nspname||'.'||cr.relname END as reftab,
+				a1.attname as refcol
+				FROM pg_constraint ct
+				JOIN pg_class cl ON cl.oid=conrelid
+				JOIN pg_class cr ON cr.oid=confrelid
+				JOIN pg_namespace nl ON nl.oid = cl.relnamespace
+				JOIN pg_namespace nr ON nr.oid = cr.relnamespace
+				LEFT JOIN pg_catalog.pg_attribute a1 ON a1.attrelid = ct.confrelid
+				LEFT JOIN pg_catalog.pg_attribute a2 ON a2.attrelid = ct.conrelid
+				WHERE contype='f'
+				AND cr.relname = $1
+				AND a2.attnum = ct.conkey[1]
+				AND a1.attnum = ct.confkey[1]
+				ORDER BY conname"; 
 
-		$res = pg_prepare( $this->getConn(), "ref_list", $sql );
-		$result = pg_execute( $this->getConn(), "ref_list", array( $this->getTable()->getName() ) );
+			Kwerry::$_ref_query = pg_prepare( $this->getConn(), "ref_query", $sql );
+		}
+		$result = pg_execute( $this->getConn(), "ref_query", array( $this->getTable()->getName() ) );
 		$aryRef = pg_fetch_all( $result );
+		if( $aryRef !== false ) {
+			foreach( $aryRef as $ref ) {
 
-		foreach( $aryRef as $ref ) {
+				$obRef = new Ref();
+				$obRef->_name		= $ref[ "refcol" ];
+				$obRef->_reftable	= $ref[ "fktab" ];
+				$obRef->_refname	= $ref[ "fkcol" ];
 
-			$obRef = new Ref();
-			$obRef->_name		= $ref[ "refcol" ];
-			$obRef->_reftable	= $ref[ "fktab" ];
-			$obRef->_refname	= $ref[ "fkcol" ];
-
-			$this->getTable()->_ref[] = $obRef;
+				$this->getTable()->_ref[] = $obRef;
+			}
 		}
 	}
 
@@ -191,7 +203,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	bool	state if object
 	 */
 	private function isDirty( $value = NULL ) {
-		//echo "->isDirty( $value )\n";
 		if( ! is_null( $value ) ) {
 			$this->_isDirty = $value;
 		}
@@ -206,7 +217,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	object	requested model object
 	 */
 	private function lazyLoad( $tableName ) {
-		//echo "->lazyLoad( $tableName )\n";
 		if( ! array_key_exists( $tableName, $this->_relationship ) ) {
 			$this->_relationship[ $tableName ] = Kwerry::model( $tableName );
 		}
@@ -222,7 +232,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	null
 	 */
 	public function addSort( $name, $type = "ASC" ) {
-		//echo "->addSort( $name, $type )\n";
 		
 		$this->isDirty( true );
 
@@ -244,7 +253,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	null
 	 */
 	public function addWhere( $field, $value, $operator = "=" ) {
-		//echo "->addWhere( $field, $value, $operator )\n";
 
 		$this->isDirty( true );
 
@@ -285,12 +293,10 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	function __toString() {
-		//echo "->toString()\n";
 		return( $this->_stringValue );
 	}
 
 	function executeQuery() {
-		//echo "->executeQuery()\n";
 
 		$param = array();
 
@@ -330,26 +336,27 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 			foreach( $this->_order as $sort ) {
 				$orderBy .= " " . $comma . " " . $sort[ "field" ] . " " . $sort[ "type" ];
+				$comma = ",";
 			}
 			$sql .= $orderBy;
 		}
 
-		$res = pg_prepare( $this->getConn(), "Kwerry", $sql );
-		$result = pg_execute( $this->getConn(), "Kwerry", $param );
+		debug_print_backtrace();
+
+		$res = pg_prepare( $this->getConn(), $q, $sql );
+		$result = pg_execute( $this->getConn(), $q, $param );
 		$this->_recordset = pg_fetch_all( $result );
 		$this->_currentRow = 0;
 		$this->isDirty( false );
 	}
 
 	function getValue( $column ) {
-		//echo "->getValue( $column )\n";
-
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( $this->_recordset[ $this->_currentRow ][ $column ] );
 	}
 
 	function __call( $name, $argument ) {
-		//echo "->$name\n";
+
 		if( strtolower( substr( $name, 0, 3 ) ) == "get" ) {
 
 			//Extrac the subject being requested for 
@@ -361,7 +368,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 					$fkTable = $this->lazyLoad( $subject );
 					$fkmethod = "where" . $obFK->_fkname;
 					$localmethod = "get" . $obFK->_name;
-					$fkTable->$where( $this->$localmethod() );
+					$fkTable->$fkmethod( $this->$localmethod() );
 					return( $fkTable );
 				}
 			}
@@ -372,7 +379,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 					$refTable = $this->lazyLoad( $subject );
 					$refmethod = "where" . $obRef->_refname;
 					$localmethod = "get" . $obRef->_name;
-					$refTable->$where( $this->$localmethod() );
+					$refTable->$refmethod( $this->$localmethod() );
 					return( $refTable );
 				}
 			}
@@ -437,7 +444,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function setConn( $conn ) { $this->_conn = $conn; }
 	public function getConn() { return( $this->_conn ); }
 
-	//array functions 
+	//array & iterator functions 
 	public function offsetExists( $offset ) { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( isset( $this->_recordset[ $offset ] ) ); 

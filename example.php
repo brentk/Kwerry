@@ -1,5 +1,5 @@
 <?
-require_once( "tbl_news.php" );
+require_once( "Kwerry.php" );
 $obNewsTable = Kwerry::model( "tbl_news" );
 $obNewsTable->whereWriter_ID( 1 )->sortInsertStamp();
 
