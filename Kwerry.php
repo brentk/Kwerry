@@ -5,12 +5,18 @@ class FK {
 	public $_fktable;
 	public $_fkname;
 }
+class Ref {
+	public $_name;
+	public $_reftable;
+	public $_refname;
+}
 
 class Table {
 	public $_name;
 	public $_pk;
 	public $_column = array();
 	public $_fk = array();
+	public $_ref = array();
 
 	public function getName() { return $this->_name; }
 	public function setName( $name ) { $this->_name = $name; }
@@ -18,12 +24,12 @@ class Table {
 	public function setPK( $pk ) { $this->_pk = $pk; }
 }
 
-class Kwerry implements arrayaccess, countable {
+class Kwerry implements arrayaccess, iterator, countable {
 
 	private $_conn;
 	private $_tableName;
 	private $_table;
-	private $_relationship;
+	private $_relationship = array();
 	private $_isDirty;
 	private $_where;
 	private $_order;
@@ -39,6 +45,7 @@ class Kwerry implements arrayaccess, countable {
 	 * @return	object	Model object
 	 */
 	static function model( $tableName ) {
+		//echo "->model( $tableName )\n";
 
 		//If there's a model in the path, load that
 		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
@@ -56,6 +63,7 @@ class Kwerry implements arrayaccess, countable {
 	}
 
 	function __construct( $tableName ) {
+		//echo "->construct( $tableName )\n";
 
 		$conn = pg_connect( "host=localhost port=5432 dbname=bkellydb user=brentkelly password=5uck@$$" );
 		$this->setConn( $conn );
@@ -137,8 +145,41 @@ class Kwerry implements arrayaccess, countable {
 			$this->getTable()->_fk[] = $obFK;
 
 		}
-		$this->_stringValue = "***\n";
 
+		//Lifted verbatim from propel
+		$sql = "SELECT conname, confupdtype, confdeltype, 
+			CASE nl.nspname WHEN 'public' THEN cl.relname 
+			ELSE nl.nspname||'.'||cl.relname END as fktab,
+			a2.attname as fkcol,
+			CASE nr.nspname WHEN 'public' THEN cr.relname 
+			ELSE nr.nspname||'.'||cr.relname END as reftab,
+			a1.attname as refcol
+			FROM pg_constraint ct
+			JOIN pg_class cl ON cl.oid=conrelid
+			JOIN pg_class cr ON cr.oid=confrelid
+			JOIN pg_namespace nl ON nl.oid = cl.relnamespace
+			JOIN pg_namespace nr ON nr.oid = cr.relnamespace
+			LEFT JOIN pg_catalog.pg_attribute a1 ON a1.attrelid = ct.confrelid
+			LEFT JOIN pg_catalog.pg_attribute a2 ON a2.attrelid = ct.conrelid
+			WHERE contype='f'
+			AND cr.relname = $1
+			AND a2.attnum = ct.conkey[1]
+			AND a1.attnum = ct.confkey[1]
+			ORDER BY conname"; 
+
+		$res = pg_prepare( $this->getConn(), "ref_list", $sql );
+		$result = pg_execute( $this->getConn(), "ref_list", array( $this->getTable()->getName() ) );
+		$aryRef = pg_fetch_all( $result );
+
+		foreach( $aryRef as $ref ) {
+
+			$obRef = new Ref();
+			$obRef->_name		= $ref[ "refcol" ];
+			$obRef->_reftable	= $ref[ "fktab" ];
+			$obRef->_refname	= $ref[ "fkcol" ];
+
+			$this->getTable()->_ref[] = $obRef;
+		}
 	}
 
 	/** isDirty is used to let the object know whether or not 
@@ -150,6 +191,7 @@ class Kwerry implements arrayaccess, countable {
 	 * @return	bool	state if object
 	 */
 	private function isDirty( $value = NULL ) {
+		//echo "->isDirty( $value )\n";
 		if( ! is_null( $value ) ) {
 			$this->_isDirty = $value;
 		}
@@ -164,6 +206,7 @@ class Kwerry implements arrayaccess, countable {
 	 * @return	object	requested model object
 	 */
 	private function lazyLoad( $tableName ) {
+		//echo "->lazyLoad( $tableName )\n";
 		if( ! array_key_exists( $tableName, $this->_relationship ) ) {
 			$this->_relationship[ $tableName ] = Kwerry::model( $tableName );
 		}
@@ -179,13 +222,14 @@ class Kwerry implements arrayaccess, countable {
 	 * @return	null
 	 */
 	public function addSort( $name, $type = "ASC" ) {
+		//echo "->addSort( $name, $type )\n";
 		
 		$this->isDirty( true );
 
 		$sort		= array();
 		$sort[ "field" ]= $name;
 		$sort[ "type" ]	= $type;
-		$this->_sort[]	= $sort;
+		$this->_order[]	= $sort;
 
 	}
 
@@ -200,6 +244,7 @@ class Kwerry implements arrayaccess, countable {
 	 * @return	null
 	 */
 	public function addWhere( $field, $value, $operator = "=" ) {
+		//echo "->addWhere( $field, $value, $operator )\n";
 
 		$this->isDirty( true );
 
@@ -240,10 +285,12 @@ class Kwerry implements arrayaccess, countable {
 	}
 
 	function __toString() {
+		//echo "->toString()\n";
 		return( $this->_stringValue );
 	}
 
 	function executeQuery() {
+		//echo "->executeQuery()\n";
 
 		$param = array();
 
@@ -277,11 +324,11 @@ class Kwerry implements arrayaccess, countable {
 		}
 
 
-		if( count( $this->_sort ) ) {
+		if( count( $this->_order ) ) {
 			$orderBy = "";
 			$comma = "ORDER BY";
 
-			foreach( $this->_sort as $sort ) {
+			foreach( $this->_order as $sort ) {
 				$orderBy .= " " . $comma . " " . $sort[ "field" ] . " " . $sort[ "type" ];
 			}
 			$sql .= $orderBy;
@@ -295,25 +342,38 @@ class Kwerry implements arrayaccess, countable {
 	}
 
 	function getValue( $column ) {
+		//echo "->getValue( $column )\n";
 
-		if( $this->isDirty() ) {
-			$this->executeQuery();
-			$this->isDirty( false );
-		}
+		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( $this->_recordset[ $this->_currentRow ][ $column ] );
 	}
 
 	function __call( $name, $argument ) {
-
+		//echo "->$name\n";
 		if( strtolower( substr( $name, 0, 3 ) ) == "get" ) {
 
 			//Extrac the subject being requested for 
 			$subject = strtolower( substr( $name, 3 ) );
 
-			//See if they're requesting a relationship 
+			//See if they're requesting a foreign keyed table
 			foreach( $this->getTable()->_fk as $obFK ) {
 				if( $obFK->_fktable == $subject ) {
-					return( $this->lazyLoad( $subject ) );
+					$fkTable = $this->lazyLoad( $subject );
+					$fkmethod = "where" . $obFK->_fkname;
+					$localmethod = "get" . $obFK->_name;
+					$fkTable->$where( $this->$localmethod() );
+					return( $fkTable );
+				}
+			}
+
+			//See if they're requesting a referencing table
+			foreach( $this->getTable()->_ref as $obRef ) {
+				if( $obRef->_reftable == $subject ) {
+					$refTable = $this->lazyLoad( $subject );
+					$refmethod = "where" . $obRef->_refname;
+					$localmethod = "get" . $obRef->_name;
+					$refTable->$where( $this->$localmethod() );
+					return( $refTable );
 				}
 			}
 
@@ -374,15 +434,49 @@ class Kwerry implements arrayaccess, countable {
 
 	protected function setTable( $table ) { $this->_table = $table; }
 	protected function getTable() { return( $this->_table ); }
-
-	//array functions 
-	public function offsetExists( $offset ) {}
-	public function offsetGet( $offset ) {}
-	public function offsetSet( $offset, $value ) {}
-	public function offsetUnset( $offset ) {}
-	public function count() { return( count( $this->_recordset ) ); }
-
 	public function setConn( $conn ) { $this->_conn = $conn; }
 	public function getConn() { return( $this->_conn ); }
 
+	//array functions 
+	public function offsetExists( $offset ) { 
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		return( isset( $this->_recordset[ $offset ] ) ); 
+	}
+	public function offsetGet( $offset ) { 
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		return( $this->_recordset[ $offset ] ); 
+	}
+	public function offsetSet( $offset, $value ) { 
+		throw new Exception( "You may not add records this way." ); 
+	}
+	public function offsetUnset( $offset ) { 
+		throw new Exception( "You may not remove records this way." ); 
+	}
+	public function current() {
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		return( $this );
+	}
+	public function key() {
+		return( $this->_currentRow );
+	}
+	public function next() {
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		$this->_currentRow++;
+	}
+	public function rewind() {
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		$this->_currentRow = 0;
+	}
+	public function valid() {
+		if( ! isset( $this->_recordset[ $this->_currentRow ] ) ) {
+			$this->_currentRow--;
+			return( false );
+		}
+		return( true );
+	}
+	public function count() { 
+		if( $this->isDirty() ) { $this->executeQuery(); }
+		return( count( $this->_recordset ) ); 
+	}
+	
 }
