@@ -65,11 +65,19 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $kwerry );
 	}
 
-	function getQuery( $sql ) {
+	/** Hashes and prepares sql queries. Searches for hash and returns already
+	 * prepared statement if applicable.
+	 * 
+	 * @access	private
+	 * @param	string		SQL Statement to prepare/return
+	 * @return	string		Prepared statement's name
+	 */
+	private function getQuery( $sql ) {
 		$index = array_search( $sql, Kwerry::$_prepared_statement );
 		if( $index === false ) {
 			$index = count( Kwerry::$_prepared_statement );
-			Kwerry::$_prepared_statement[ $index ] = pg_prepare( $this->getConn(), $index, $sql );
+			Kwerry::$_prepared_statement[ $index ] = $sql;
+			$toss = pg_prepare( $this->getConn(), $index, $sql );
 		}
 		return( $index );
 	}
@@ -300,11 +308,26 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return;
 	}
 
+	/** Once the call has built a query and requested a column,
+	 * this ensures that the requested value will be output when
+	 * the object is echoed, etc.
+	 *
+	 * @access	magic
+	 * @return	string		Value specified in earlier ->getFoo()
+	 */
 	function __toString() {
 		return( $this->_stringValue );
 	}
 
-	function executeQuery() {
+	/** Actual execution of built queries.  Handles compiling all the 
+	 * where and sort properties and compiles it into an actual SQL query.
+	 * In the future this will need to be delegated to db specifiec functions
+	 * to handle the different nuances of each db's SQL implementation.
+	 * 
+	 * @access	private
+	 * @return	NULL
+	 */
+	private function executeQuery() {
 
 		$param = array();
 
@@ -332,6 +355,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 					$param[] = $aryWhere[ "value" ];
 					$where .= "$".count( $param )." ";
 				}
+				
+				$and = "AND";
 			}
 	
 			$sql .= $where;
@@ -361,11 +386,38 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->isDirty( false );
 	}
 
+	/** Returns a column's value at the current cursor in the 
+	 * recordset.  Will execute (or re-execute) the object's 
+	 * query if needed.
+	 *
+	 * @access	public
+	 * @param	string		Column name.
+	 * @return	string		Column value at current cursor position.
+	 */
 	function getValue( $column ) {
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( $this->_recordset[ $this->_currentRow ][ $column ] );
 	}
 
+	/** Returns an array of this table's column names.
+	 *
+	 * @access	public
+	 * @return	array		This model's table's column names
+	 */
+	public function getColumns() {
+		return( $this->getTable()->_column );
+	}
+
+	/** Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
+	 * When ->get-ing, method will attempt to figure out whether caller is
+	 * asking for a column value, a foreigned keyed table, or a referencing table
+	 * and ether return the column's value or a model of the requested table.
+	 *
+	 * @access	magic
+	 * @param	string		Name of method caller requested.
+	 * @param	array		Array of arguments caller supplied to method.
+	 * @return	variant		Will return either this object, or fk/reference table object
+	 */
 	function __call( $name, $argument ) {
 		
 		if( strtolower( substr( $name, 0, 3 ) ) == "get" ) {
@@ -391,7 +443,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 			//must be a column
 			if( in_array( $subject, $this->getTable()->_column ) ) {
-				$this->_stringValue = $this->getValue( $subject );
+				$this->_stringValue = (string)$this->getValue( $subject );
 				return( $this );
 			}
 
@@ -449,7 +501,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function setConn( $conn ) { $this->_conn = $conn; }
 	public function getConn() { return( $this->_conn ); }
 
-	//array & iterator functions 
+	//arrayaccess, iterator, and count methods 
 	public function offsetExists( $offset ) { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( isset( $this->_recordset[ $offset ] ) ); 
@@ -489,5 +541,4 @@ class Kwerry implements arrayaccess, iterator, countable {
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( count( $this->_recordset ) ); 
 	}
-	
 }

@@ -2,6 +2,7 @@
 require_once( "Kwerry.php" );
 $obNewsTable = Kwerry::model( "tbl_news" );
 $obNewsTable->whereWriter_ID( 1 )->sortInsertStamp();
+//$obNewsTable->whereWriter_ID( 1 )->whereTitle( "Progress Waits for No Man" )->sortInsertStamp();
 
 
 if( true == false ) {
@@ -15,10 +16,6 @@ if( true == false ) {
 	foreach( $obNewsTable as $obNews ) {
 		echo $obNews->getTitle() . ": ";
 
-		//Working:
-		echo count( $obNews->getTbl_Comment() ) ."\n";
-
-		//Not Working:
 		echo count( $obNews->getTbl_Comment()->whereActive( 1 ) ) ."\n";
 
 
