@@ -24,45 +24,47 @@ class Table {
 	public function setPK( $pk ) { $this->_pk = $pk; }
 }
 
-class Kwerry implements arrayaccess, iterator, countable {
+class database {
+	private $_host;
+	private $_port;
+	private $_dbname;
+	private $_username;
+	private $_password;
+	public function setHost( $value ) { $this->_host = $value; }
+	public function getHost() { return( $this->_host ); }
+	public function setPort( $value ) { $this->_port = $value; }
+	public function getPort() { return( $this->_port ); }
+	public function setDBName( $value ) { $this->_dbname = $value; }
+	public function getDBName() { return( $this->_dbname ); }
+	public function setUsername( $value ) { $this->_username = $value; }
+	public function getUsername() { return( $this->_username ); }
+	public function setPassword( $value ) { $this->_password = $value; }
+	public function getPassword() { return( $this->_password ); }
 
-	private $_conn;
-	private $_tableName;
-	private $_table;
-	private $_relationship = array();
-	private $_isDirty;
-	private $_where;
-	private $_order;
-	private $_stringValue;
-	private $_currentRow = 0;
-	private $_recordset = array();
+	public function connect() {
+		throw new Exception( "::connect not implemented!" );
+	}
+	public function introspection() {
+		throw new Exception( "::introspection not implemented!" );
+	}
+	public function execute() {
+		throw new Exception( "::connect not implemented!" );
+	}
+}
 
+class postgresql extends database {
+
+	private $_connection;
 	public static $_prepared_statement = array();
 
-
-	/** Attmps to find a model on the path. If on is not found, attempts
-	 * to create a vanilla model by examining the database schema.
-	 *
-	 * @access	static
-	 * @param	string	Name of requested table/model
-	 * @return	object	Model object
-	 */
-	static function model( $tableName ) {
-
-		//If there's a model in the path, load that
-		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
-			if( file_exists( $path . "/" . $tableName . ".php" ) ) {
-				require_once( $path . "/" . $tableName . ".php" );
-				if( class_exists( $tableName ) ) {
-					$kwerry = new $tableName();
-					return( $kwerry );
-				}
-			}
-		}
-
-		//If not, create one on the fly
-		$kwerry = new Kwerry( $tableName );
-		return( $kwerry );
+	public function connect() {
+		$connectionString = "";
+		$connectionString .= " host=".$this->getHost();
+		$connectionString .= " port=".$this->getPort();
+		$connectionString .= " dbname=".$this->getDBName();
+		$connectionString .= " user=".$this->getUsername();
+		$connectionString .= " password=".$this->getPassword();
+		$this->_connection = pg_connect( $connectionString );
 	}
 
 	/** Hashes and prepares sql queries. Searches for hash and returns already
@@ -73,27 +75,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	string		Prepared statement's name
 	 */
 	private function getQuery( $sql ) {
-		$index = array_search( $sql, Kwerry::$_prepared_statement );
+		$index = array_search( $sql, postgresql::$_prepared_statement );
 		if( $index === false ) {
-			$index = count( Kwerry::$_prepared_statement );
-			Kwerry::$_prepared_statement[ $index ] = $sql;
-			$toss = pg_prepare( $this->getConn(), $index, $sql );
+			$index = count( postgresql::$_prepared_statement );
+			postgresql::$_prepared_statement[ $index ] = $sql;
+			$toss = pg_prepare( $this->_connection, $index, $sql );
 		}
 		return( $index );
 	}
 
-	function __construct( $tableName ) {
-
-		$conn = pg_connect( "host=localhost port=5432 dbname=bkellydb user=brentkelly password=5uck@$$" );
-		$this->setConn( $conn );
-
-		//======================
-		// Begin Introspection
-		//======================
-
-		$obTable = new Table();
-		$obTable->setName( $tableName );
-		$this->setTable( $obTable );
+	private function populateColumns( &$obTable ) {
 
 		$sql = "SELECT pg_attribute.attnum, pg_attribute.attname AS field, pg_type.typname AS type, 
 				pg_attribute.attlen AS length, pg_attribute.atttypmod AS lengthvar, 
@@ -113,7 +104,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			ORDER BY pg_attribute.attnum";
 
 
-		$result = pg_execute( $this->getConn(), $this->getQuery( $sql ), array( $this->getTable()->getName() ) );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
 		$aryColumns = pg_fetch_all( $result );
 
 		if( $aryColumns === false ) {
@@ -121,13 +112,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 
 		foreach( $aryColumns as $column ) {
-			$this->getTable()->_column[] = $column[ "field" ];
+			$obTable->_column[] = $column[ "field" ];
 
 			if( $column[ "primary_key" ] ) {
-				$this->getTable()->_pk = $column[ "field" ];
+				$obTable->_pk = $column[ "field" ];
 			}
 		}
+	}
 
+	
+	public function populateFK( &$obTable) {
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
 			CASE nl.nspname WHEN 'public' THEN cl.relname 
@@ -149,7 +143,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			AND a1.attnum = ct.confkey[1]
 			ORDER BY conname"; 
 
-		$result = pg_execute( $this->getConn(), $this->getQuery( $sql ), array( $this->getTable()->getName() ) );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
 		$aryFK = pg_fetch_all( $result );
 
 		if( $aryFK !== false ) {
@@ -160,11 +154,13 @@ class Kwerry implements arrayaccess, iterator, countable {
 				$obFK->_fktable	= $fk[ "reftab" ];
 				$obFK->_fkname	= $fk[ "refcol" ];
 
-				$this->getTable()->_fk[] = $obFK;
+				$obTable->_fk[] = $obFK;
 
 			}
 		}
+	}
 
+	public function populateRef( &$obTable) {
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
 			CASE nl.nspname WHEN 'public' THEN cl.relname 
@@ -186,7 +182,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			AND a1.attnum = ct.confkey[1]
 			ORDER BY conname"; 
 
-		$result = pg_execute( $this->getConn(), $this->getQuery( $sql ), array( $this->getTable()->getName() ) );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
 		$aryRef = pg_fetch_all( $result );
 		if( $aryRef !== false ) {
 			foreach( $aryRef as $ref ) {
@@ -196,8 +192,144 @@ class Kwerry implements arrayaccess, iterator, countable {
 				$obRef->_reftable	= $ref[ "fktab" ];
 				$obRef->_refname	= $ref[ "fkcol" ];
 
-				$this->getTable()->_ref[] = $obRef;
+				$obTable->_ref[] = $obRef;
 			}
+		}
+	}
+
+	public function introspection( &$obTable) {
+		$this->populateColumns( $obTable );
+		$this->populateFK( $obTable );
+		$this->populateRef( $obTable );
+	}
+
+	public function execute( &$obKwerry ) {
+
+		$param = array();
+
+		$sql = " SELECT * FROM ".$obKwerry->getTable()->getName() . " ";
+
+		if( count( $obKwerry->_where ) ) {
+
+			$where = "";
+			$and = "WHERE";
+
+			foreach( $obKwerry->_where as $aryWhere ) {
+
+				$where .= " " . $and . " ";
+				$where .= $aryWhere[ "field" ] . " ";
+				$where .= $aryWhere[ "operator" ] . " ";
+
+				if( is_array( $aryWhere[ "value" ] ) ) {
+					$comma = "";
+					foreach( $aryWhere[ "value" ] as $value ) {
+						$param[] = $value;
+						$where .= $comma . "$".count( $param )." ";
+						$comma = ",";
+					}
+				} else {
+					$param[] = $aryWhere[ "value" ];
+					$where .= "$".count( $param )." ";
+				}
+				
+				$and = "AND";
+			}
+	
+			$sql .= $where;
+		}
+
+		if( count( $obKwerry->_order ) ) {
+			$orderBy = "";
+			$comma = "ORDER BY";
+
+			foreach( $obKwerry->_order as $sort ) {
+				$orderBy .= " " . $comma . " " . $sort[ "field" ] . " " . $sort[ "type" ];
+				$comma = ",";
+			}
+			$sql .= $orderBy;
+		}
+
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$recordset = pg_fetch_all( $result );
+		return( $recordset );
+	}
+}
+
+class Kwerry implements arrayaccess, iterator, countable {
+
+	public $_tableName;
+	public $_table;
+	public $_relationship = array();
+	public $_isDirty;
+	public $_where;
+	public $_order;
+
+	private $_stringValue;
+	private $_currentRow = 0;
+	private $_recordset = array();
+	private $_connectionName;
+
+	public static $_connection = array();
+
+
+	/** Attmps to find a model on the path. If on is not found, attempts
+	 * to create a vanilla model by examining the database schema.
+	 *
+	 * @access	static
+	 * @param	string	Name of requested table/model
+	 * @return	object	Model object
+	 */
+	static function model( $tableName, $connectionName = "default" ) {
+
+		//If there's a model in the path, load that
+		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
+			if( file_exists( $path . "/" . $tableName . ".php" ) ) {
+				require_once( $path . "/" . $tableName . ".php" );
+				if( class_exists( $tableName ) ) {
+					$kwerry = new $tableName( $connectionName );
+					return( $kwerry );
+				}
+			}
+		}
+
+		//If not, create one on the fly
+		$kwerry = new Kwerry( $tableName, $connectionName );
+		return( $kwerry );
+	}
+
+	function __construct( $tableName, $connectionName ) {
+		global $kwerry_opts;
+
+		//Ensure that the options variable is kosher
+		if( ! $kwerry_opts ) { 
+			throw new Excetption( "\$kwerry_opts Array not found!" );
+		}
+		if( ! is_array( $kwerry_opts ) ) { 
+			throw new Excetption( "\$kwerry_opts not an Array!" );
+		}
+		$dbclass = $kwerry_opts[ $connectionName ][ "dbtype" ];
+		if( ! class_exists( $dbclass ) ) {
+			throw new Excetption( "Uknown dbtype: \"".$dbclass."\"." );
+		}
+		$this->_connectionName = $connectionName;
+
+		//Setup this db connection if it hasn't already been 
+		if( ! isset( Kwerry::$_connection[ $this->_connectionName ] ) ) {
+			Kwerry::$_connection[ $this->_connectionName ] = new $dbclass();
+			Kwerry::$_connection[ $this->_connectionName ]->setHost(	$kwerry_opts[ $connectionName ][ "host" ] );
+			Kwerry::$_connection[ $this->_connectionName ]->setPort(	$kwerry_opts[ $connectionName ][ "port" ] );
+			Kwerry::$_connection[ $this->_connectionName ]->setDBName(	$kwerry_opts[ $connectionName ][ "dbname" ] );
+			Kwerry::$_connection[ $this->_connectionName ]->setUsername(	$kwerry_opts[ $connectionName ][ "username" ] );
+			Kwerry::$_connection[ $this->_connectionName ]->setPassword(	$kwerry_opts[ $connectionName ][ "password" ] );
+			Kwerry::$_connection[ $this->_connectionName ]->connect();		
+		}
+
+		//If this isn't a predifined model, use introspection to build layout
+		if( ! is_object( $this->getTable() ) ) {
+			$obTable = new Table();
+			$obTable->setName( $tableName );
+			$this->setTable( $obTable );
+			Kwerry::$_connection[ $connectionName ]->introspection( $obTable );
 		}
 	}
 
@@ -329,53 +461,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	private function executeQuery() {
 
-		$param = array();
-
-		$sql = " SELECT * FROM ".$this->getTable()->getName() . " ";
-
-		if( count( $this->_where ) ) {
-
-			$where = "";
-			$and = "WHERE";
-
-			foreach( $this->_where as $aryWhere ) {
-
-				$where .= " " . $and . " ";
-				$where .= $aryWhere[ "field" ] . " ";
-				$where .= $aryWhere[ "operator" ] . " ";
-
-				if( is_array( $aryWhere[ "value" ] ) ) {
-					$comma = "";
-					foreach( $aryWhere[ "value" ] as $value ) {
-						$param[] = $value;
-						$where .= $comma . "$".count( $param )." ";
-						$comma = ",";
-					}
-				} else {
-					$param[] = $aryWhere[ "value" ];
-					$where .= "$".count( $param )." ";
-				}
-				
-				$and = "AND";
-			}
-	
-			$sql .= $where;
-		}
-
-		if( count( $this->_order ) ) {
-			$orderBy = "";
-			$comma = "ORDER BY";
-
-			foreach( $this->_order as $sort ) {
-				$orderBy .= " " . $comma . " " . $sort[ "field" ] . " " . $sort[ "type" ];
-				$comma = ",";
-			}
-			$sql .= $orderBy;
-		}
-
-		$result = pg_execute( $this->getConn(), $this->getQuery( $sql ), $param );
-		$recordset = pg_fetch_all( $result );
-
+		$recordset = Kwerry::$_connection[ $this->_connectionName ]->execute( $this );		
+		
 		if( $recordset === false ) {
 			$this->_recordset = array();
 		} else {
@@ -407,6 +494,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function getColumns() {
 		return( $this->getTable()->_column );
 	}
+
+	public function setTable( $table ) { $this->_table = $table; }
+	public function getTable() { return( $this->_table ); }
+	public function setConn( $conn ) { $this->_conn = $conn; }
+	public function getConn() { return( $this->_conn ); }
 
 	/** Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
 	 * When ->get-ing, method will attempt to figure out whether caller is
@@ -495,11 +587,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 		throw new Exception( "Unknown method \"$name\"." );
 	}
-
-	protected function setTable( $table ) { $this->_table = $table; }
-	protected function getTable() { return( $this->_table ); }
-	public function setConn( $conn ) { $this->_conn = $conn; }
-	public function getConn() { return( $this->_conn ); }
 
 	//arrayaccess, iterator, and count methods 
 	public function offsetExists( $offset ) { 
