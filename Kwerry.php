@@ -1,27 +1,46 @@
 <?
 error_reporting( E_ALL );
 class FK {
-	public $_name;
-	public $_fktable;
-	public $_fkname;
+	private $_name;
+	private $_fktable;
+	private $_fkname;
+	public function getName() { return $this->_name; }
+	public function setName( $name ) { $this->_name = $name; }
+	public function getFKTable() { return $this->_fktable; }
+	public function setFKTable( $fktable ) { $this->_fktable = $fktable; }
+	public function getFKName() { return $this->_fkname; }
+	public function setFKName( $fkname ) { $this->_fkname = $fkname; }
 }
+
 class Ref {
-	public $_name;
-	public $_reftable;
-	public $_refname;
+	private $_name;
+	private $_reftable;
+	private $_refname;
+	public function getName() { return $this->_name; }
+	public function setName( $name ) { $this->_name = $name; }
+	public function getRefTable() { return $this->_reftable; }
+	public function setRefTable( $reftable ) { $this->_reftable = $reftable; }
+	public function getRefName() { return $this->_refname; }
+	public function setRefName( $refname ) { $this->_refname = $refname; }
 }
 
 class Table {
-	public $_name;
-	public $_pk;
-	public $_column = array();
-	public $_fk = array();
-	public $_ref = array();
+	private $_name;
+	private $_pk;
+	private $_column = array();
+	private $_fk = array();
+	private $_ref = array();
 
 	public function getName() { return $this->_name; }
 	public function setName( $name ) { $this->_name = $name; }
 	public function getPK() { return $this->_pk; }
 	public function setPK( $pk ) { $this->_pk = $pk; }
+	public function addColumn( $column ) { $this->_column[] = $column; }
+	public function getColumns() { return( $this->_column ); }
+	public function addFK( $fk ) { $this->_fk[] = $fk; }
+	public function getFKs() { return( $this->_fk ); }
+	public function addRef( $ref ) { $this->_ref[] = $ref; }
+	public function getRefs() { return( $this->_ref ); }
 }
 
 class database {
@@ -112,14 +131,13 @@ class postgresql extends database {
 		}
 
 		foreach( $aryColumns as $column ) {
-			$obTable->_column[] = $column[ "field" ];
+			$obTable->addColumn( $column[ "field" ] );
 
 			if( $column[ "primary_key" ] ) {
-				$obTable->_pk = $column[ "field" ];
+				$obTable->setPK( $column[ "field" ] );
 			}
 		}
 	}
-
 	
 	public function populateFK( &$obTable) {
 		//Lifted verbatim from propel
@@ -148,16 +166,14 @@ class postgresql extends database {
 
 		if( $aryFK !== false ) {
 			foreach( $aryFK as $fk ) {
-
 				$obFK = new FK();
-				$obFK->_name	= $fk[ "fkcol" ];
-				$obFK->_fktable	= $fk[ "reftab" ];
-				$obFK->_fkname	= $fk[ "refcol" ];
-
-				$obTable->_fk[] = $obFK;
-
+				$obFK->setName( $fk[ "fkcol" ] );
+				$obFK->setFKTable( $fk[ "reftab" ] );
+				$obFK->setFKName( $fk[ "refcol" ] );
+				$obTable->addFK( $obFK );
 			}
 		}
+
 	}
 
 	public function populateRef( &$obTable) {
@@ -186,13 +202,11 @@ class postgresql extends database {
 		$aryRef = pg_fetch_all( $result );
 		if( $aryRef !== false ) {
 			foreach( $aryRef as $ref ) {
-
 				$obRef = new Ref();
-				$obRef->_name		= $ref[ "refcol" ];
-				$obRef->_reftable	= $ref[ "fktab" ];
-				$obRef->_refname	= $ref[ "fkcol" ];
-
-				$obTable->_ref[] = $obRef;
+				$obRef->setName( $ref[ "refcol" ] );
+				$obRef->setRefTable( $ref[ "fktab" ] );
+				$obRef->setRefName( $ref[ "fkcol" ] );
+				$obTable->addRef( $obRef );
 			}
 		}
 	}
@@ -297,6 +311,21 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $kwerry );
 	}
 
+	/** Uses the connection's database class's introspection to
+	 * create a model of the table's layout. If a defined class 
+	 * exists, it can override this to build the table by hand to
+	 * increase speed and flexibility.
+	 *
+	 * @access	protected
+	 * @return	NULL
+	 */
+	protected function buildDataModel( $tableName ) {
+		$obTable = new Table();
+		$obTable->setName( $tableName );
+		$this->setTable( $obTable );
+		Kwerry::$_connection[ $this->_connectionName ]->introspection( $obTable );
+	}
+
 	function __construct( $tableName, $connectionName ) {
 		global $kwerry_opts;
 
@@ -324,13 +353,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			Kwerry::$_connection[ $this->_connectionName ]->connect();		
 		}
 
-		//If this isn't a predifined model, use introspection to build layout
-		if( ! is_object( $this->getTable() ) ) {
-			$obTable = new Table();
-			$obTable->setName( $tableName );
-			$this->setTable( $obTable );
-			Kwerry::$_connection[ $connectionName ]->introspection( $obTable );
-		}
+		$this->buildDataModel( $tableName );
 	}
 
 	/** isDirty is used to let the object know whether or not 
@@ -492,7 +515,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	array		This model's table's column names
 	 */
 	public function getColumns() {
-		return( $this->getTable()->_column );
+		return( $this->getTable()->getColumns() );
 	}
 
 	public function setTable( $table ) { $this->_table = $table; }
@@ -518,23 +541,23 @@ class Kwerry implements arrayaccess, iterator, countable {
 			$subject = strtolower( substr( $name, 3 ) );
 
 			//See if they're requesting a foreign keyed table
-			foreach( $this->getTable()->_fk as $obFK ) {
-				if( $obFK->_fktable == $subject ) {
-					$fkTable = $this->lazyLoad( $subject, $obFK->_fkname, $obFK->_name );
+			foreach( $this->getTable()->getFKs() as $obFK ) {
+				if( $obFK->getFKTable() == $subject ) {
+					$fkTable = $this->lazyLoad( $subject, $obFK->getFKName(), $obFK->getName() );
 					return( $fkTable );
 				}
 			}
 
 			//See if they're requesting a referencing table
-			foreach( $this->getTable()->_ref as $obRef ) {
-				if( $obRef->_reftable == $subject ) {
-					$refTable = $this->lazyLoad( $subject, $obRef->_refname, $obRef->_name );
+			foreach( $this->getTable()->getRefs() as $obRef ) {
+				if( $obRef->getRefTable() == $subject ) {
+					$refTable = $this->lazyLoad( $subject, $obRef->getRefName(), $obRef->getName() );
 					return( $refTable );
 				}
 			}
 
 			//must be a column
-			if( in_array( $subject, $this->getTable()->_column ) ) {
+			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
 				$this->_stringValue = (string)$this->getValue( $subject );
 				return( $this );
 			}
@@ -549,7 +572,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			$subject = strtolower( substr( $name, 5 ) );
 
 			//See if we can locate the column they're requesting
-			if( in_array( $subject, $this->getTable()->_column ) ) {
+			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
 
 				$value	= (string)$argument[ 0 ];
 				$operator = "=";
@@ -571,7 +594,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			$subject = strtolower( substr( $name, 4 ) );
 
 			//See if we can locate the column they're requesting
-			if( in_array( $subject, $this->getTable()->_column ) ) {
+			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
 	
 				$type = "ASC";
 				if( isset( $argument[ 0 ] ) ) {
