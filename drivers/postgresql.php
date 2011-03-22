@@ -30,6 +30,40 @@ class postgresql extends database {
 		return( $index );
 	}
 
+	private function getDataType( $type ) {
+
+		switch( $type ) {
+			case( "int4" ):
+				return constant( "DATA_TYPE_INTEGER" );
+				break;
+			case( "text" ):
+			case( "varchar" ):
+				return constant( "DATA_TYPE_STRING" );
+				break;
+			case( "date" ):
+				return constant( "DATA_TYPE_DATE" );
+				break;
+			case( "time" ):
+				return constant( "DATA_TYPE_TIME" );
+				break;
+			case( "timestamp" ):
+				return constant( "DATA_TYPE_STAMP" );
+				break;
+			case( "numeric" ):
+				return constant( "DATA_TYPE_NUMERIC" );
+				break;
+			case( "bytea" ):
+				return constant( "DATA_TYPE_BLOB" );
+				break;
+			case( "bool" ):
+				return constant( "DATA_TYPE_BOOL" );
+				break;
+			default:
+				throw new Exception( "Unknown data type \"{$type}\"." );
+		}
+
+	}
+
 	private function populateColumns( &$obTable ) {
 
 		$sql = "SELECT pg_attribute.attnum, pg_attribute.attname AS field, pg_type.typname AS type, 
@@ -57,16 +91,20 @@ class postgresql extends database {
 			throw new Exception( "Unable to list columns in table $tableName\n\n" );
 		}
 
-		foreach( $aryColumns as $column ) {
-			$obTable->addColumn( $column[ "field" ] );
+		foreach( $aryColumns as $record ) {
+			$column = new Column();
+			$column->setName( $record[ "field" ] );
+			$column->setDataType( $this->getDataType( $record[ "type" ] ) );
+			$obTable->addColumn( $column );
 
-			if( $column[ "primary_key" ] ) {
-				$obTable->setPK( $column[ "field" ] );
+			if( $record[ "primary_key" ] ) {
+				$obTable->setPK( $record[ "field" ] );
 			}
 		}
 	}
 	
 	public function populateFK( &$obTable) {
+
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
 			CASE nl.nspname WHEN 'public' THEN cl.relname 
@@ -104,6 +142,7 @@ class postgresql extends database {
 	}
 
 	public function populateRef( &$obTable) {
+
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
 			CASE nl.nspname WHEN 'public' THEN cl.relname 

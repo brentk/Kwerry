@@ -31,6 +31,24 @@ class Ref {
 	public function setRefName( $refname ) { $this->_refname = $refname; }
 }
 
+define( "DATA_TYPE_INTEGER",	0 );
+define( "DATA_TYPE_STRING",	1 );
+define( "DATA_TYPE_DATE",	2 );
+define( "DATA_TYPE_TIME",	3 );
+define( "DATA_TYPE_STAMP",	4 );
+define( "DATA_TYPE_BOOL",	5 );
+define( "DATA_TYPE_NUMERIC",	6 );
+define( "DATA_TYPE_BLOB",	7 );
+
+class Column {
+	private $_name;
+	private $_datatype;
+	public function getName() { return $this->_name; }
+	public function setName( $name ) { $this->_name = $name; }
+	public function getDataType() { return $this->_datatype; }
+	public function setDataType( $datatype ) { $this->_datatype = $datatype; }
+}
+
 class Table {
 	private $_name;
 	private $_pk;
@@ -48,6 +66,16 @@ class Table {
 	public function getFKs() { return( $this->_fk ); }
 	public function addRef( $ref ) { $this->_ref[] = $ref; }
 	public function getRefs() { return( $this->_ref ); }
+
+	public function hasColumn( $name ) {
+		foreach( $this->getColumns() as $column ) {
+			if ( $column->getName() == $name ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 }
 
 class database {
@@ -105,8 +133,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 		//If there's a model in the path, load that
 		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
-			if( file_exists( $path . "/" . $tableName . ".php" ) ) {
-				require_once( $path . "/" . $tableName . ".php" );
+
+			$full_path = "{$path}/Kwerry/{$tableName}.php";
+
+			if( file_exists( $full_path ) ) {
+				require_once( $full_path );
 				if( class_exists( $tableName ) ) {
 					$kwerry = new $tableName( $connectionName );
 					return( $kwerry );
@@ -119,7 +150,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $kwerry );
 	}
 
-	/** Uses the connection's database class's introspection to
+	/** 
+	 * Uses the connection's database class's introspection to
 	 * create a model of the table's layout. If a defined class 
 	 * exists, it can override this to build the table by hand to
 	 * increase speed and flexibility.
@@ -349,7 +381,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 
 		//must be a column
-		if( in_array( $name, $this->getTable()->getColumns() ) ) {
+		if( $this->getTable()->hasColumn( $name ) ) {
 			$this->_stringValue = (string)$this->getValue( $name );
 			return( $this );
 		}
@@ -374,7 +406,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			$subject = strtolower( substr( $name, 5 ) );
 
 			//See if we can locate the column they're requesting
-			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
+			if( $this->getTable()->hasColumn( $subject ) ) {
 
 				$value	= (string)$argument[ 0 ];
 				$operator = "=";
@@ -396,7 +428,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			$subject = strtolower( substr( $name, 4 ) );
 
 			//See if we can locate the column they're requesting
-			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
+			if( $this->getTable()->hasColumn( $subject ) ) {
 	
 				$type = "ASC";
 				if( isset( $argument[ 0 ] ) ) {

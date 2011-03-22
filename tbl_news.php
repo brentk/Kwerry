@@ -5,40 +5,79 @@ class tbl_news extends Kwerry {
 	}
 
 	protected function buildDataModel() {
-		$obTable = new Table();
+		$table = new Table();
 
-		$obTable->setName( "tbl_news" );
-		$obTable->setPK( "news_id" );
-		
-		$obTable->addColumn( "news_id" );
-		$obTable->addColumn( "title" );
-		$obTable->addColumn( "body" );
-		$obTable->addColumn( "date" );
-		$obTable->addColumn( "time" );
-		$obTable->addColumn( "writer_id" );
-		$obTable->addColumn( "sticky" );
-		$obTable->addColumn( "active" );
-		$obTable->addColumn( "insertstamp" );
-		$obTable->addColumn( "updatestamp" );
+		$table->setName( "tbl_news" );
+		$table->setPK( "news_id" );
 
-		$obFK = new FK();
-		$obFK->setName( "writer_id" );
-		$obFK->setFKTable( "tbl_writer" );
-		$obFK->setFKName( "writer_id" );
-		$obTable->addFK( $obFK );
+		$column = new Column();
+		$column->setName( "news_id" );
+		$column->setDataType( DATA_TYPE_INTEGER );
+		$table->addColumn( $column );
 
-		$obRef = new Ref();
-		$obRef->setName( "news_id" );
-		$obRef->setRefTable( "tbl_comment" );
-		$obRef->setRefName( "news_id" );
-		$obTable->addRef( $obRef );
+		$column = new Column();
+		$column->setName( "title" );
+		$column->setDataType( DATA_TYPE_STRING );
+		$table->addColumn( $column );
 
-		$obRef = new Ref();
-		$obRef->setName( "news_id" );
-		$obRef->setRefTable( "tbl_news_tag" );
-		$obRef->setRefName( "news_id" );
-		$obTable->addRef( $obRef );
+		$column = new Column();
+		$column->setName( "body" );
+		$column->setDataType( DATA_TYPE_STRING );
+		$table->addColumn( $column );
 
-		$this->setTable( $obTable );
+		$column = new Column();
+		$column->setName( "date" );
+		$column->setDataType( DATA_TYPE_DATE );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "time" );
+		$column->setDataType( DATA_TYPE_TIME );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "writer_id" );
+		$column->setDataType( DATA_TYPE_INTEGER );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "sticky" );
+		$column->setDataType( DATA_TYPE_INTEGER );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "active" );
+		$column->setDataType( DATA_TYPE_INTEGER );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "insertstamp" );
+		$column->setDataType( DATA_TYPE_STAMP );
+		$table->addColumn( $column );
+
+		$column = new Column();
+		$column->setName( "updatestamp" );
+		$column->setDataType( DATA_TYPE_STAMP );
+		$table->addColumn( $column );
+
+		$fk = new FK();
+		$fk->setName( "writer_id" );
+		$fk->setFKTable( "tbl_writer" );
+		$fk->setFKName( "writer_id" );
+		$table->addFK( $fk );
+
+		$ref = new Ref();
+		$ref->setName( "news_id" );
+		$ref->setRefTable( "tbl_comment" );
+		$ref->setRefName( "news_id" );
+		$table->addRef( $ref );
+
+		$ref = new Ref();
+		$ref->setName( "news_id" );
+		$ref->setRefTable( "tbl_news_tag" );
+		$ref->setRefName( "news_id" );
+		$table->addRef( $ref );
+
+		$this->setTable( $table );
 	}
 }
