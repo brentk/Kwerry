@@ -5,27 +5,35 @@ function micro_time() {
 }
 $time_start = micro_time();
 
-/* start bootstrap */
-require_once( "Kwerry.php" );
+require_once( "Kwerry/Kwerry.php" );
 $kwerry_opts[ "default" ][ "dbtype" ]	= "postgresql";
 $kwerry_opts[ "default" ][ "host" ]	= "localhost";
 $kwerry_opts[ "default" ][ "port" ]	= "5432";
 $kwerry_opts[ "default" ][ "dbname" ]	= "bkellydb";
 $kwerry_opts[ "default" ][ "username" ]	= "brentkelly";
 $kwerry_opts[ "default" ][ "password" ]	= "p@\$\$w0rd";
-/* end bootstrap */
+$kwerry_opts[ "default" ][ "prefix" ]	= "tbl_";
+$kwerry_opts[ "default" ][ "suffix" ]	= "";
 
-$writer = Kwerry::model( "tbl_writer" );
-$news = $writer->whereName( "Brent" )->getTbl_News()->sortInsertstamp();
+try{
 
-foreach( $news as $post ) {
-	echo $post->getTitle() . "\n";
-	foreach( $post->getTbl_Comment()->whereActive( 1 )->sortDate()->sortTime() as $comment ) {
-		echo "\t".$comment->getName() . ": ";
-		echo $comment->getDate()."\n";
+	$writer = Kwerry::model( "tbl_writer" );
+	$news = $writer->whereName( "Brent" )->tbl_news->sortInsertstamp();
+
+	foreach( $news as $post ) {
+		echo $post->title . "\n";
+		foreach( $post->tbl_comment->whereActive( 1 )->sortDate()->sortTime() as $comment ) {
+			echo "\t".$comment->name . ": ";
+			echo $comment->date."\n";
+		}
 	}
+
+	$obTest = Kwerry::model( "tbl_test" );
+} catch( Exception $e ) {
+	echo "\n********* ERROR ***********\n";
+	echo $e->getMessage()."\n\n";
+	echo $e->getTraceAsString()."\n\n";
 }
 
-$obTest = Kwerry::model( "tbl_test" );
 
 echo bcsub( micro_time(), $time_start, 6 )."\n";

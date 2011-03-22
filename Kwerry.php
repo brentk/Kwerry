@@ -68,13 +68,13 @@ class database {
 	public function getPassword() { return( $this->_password ); }
 
 	public function connect() {
-		throw new Exception( "::connect not implemented!" );
+		throw new Exception( get_called_class()."::connect not implemented!" );
 	}
 	public function introspection() {
-		throw new Exception( "::introspection not implemented!" );
+		throw new Exception( get_called_class()."::introspection not implemented!" );
 	}
 	public function execute() {
-		throw new Exception( "::execute not implemented!" );
+		throw new Exception( get_called_class()."::execute not implemented!" );
 	}
 }
 
@@ -98,7 +98,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	/** Attmps to find a model on the path. If on is not found, attempts
 	 * to create a vanilla model by examining the database schema.
 	 *
-	 * @access	static
 	 * @param	string	Name of requested table/model
 	 * @return	object	Model object
 	 */
@@ -125,7 +124,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * exists, it can override this to build the table by hand to
 	 * increase speed and flexibility.
 	 *
-	 * @access	protected
 	 * @return	NULL
 	 */
 	protected function buildDataModel( $tableName ) {
@@ -177,7 +175,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * the parameters of the query have changed. If so, we need to
 	 * execute or re-execute the query with the lastest query.
 	 * 
-	 * @access	private
 	 * @param	bool	optional wheher object is dirty or not
 	 * @return	bool	state if object
 	 */
@@ -191,14 +188,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 	/** Build and cache relateed models. Return cached versions if
 	 * previously built.
 	 *
-	 * @access	private
 	 * @param	string	name of table 
 	 * @return	object	requested model object
 	 */
 	private function lazyLoad( $tableName, $their_column, $my_column ) {
 
-		$argument = "get".$my_column;
-		$value = $this->$argument();
+		$value = $this->$my_column;
 
 		$hash = serialize( array( $tableName, $their_column, $value ) );
 
@@ -214,7 +209,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	/** Create an order by clause to add to the query and sets the 
 	 * object as dirty. 
 	 *
-	 * @access	public
 	 * @param	string	Name of database field to sort by
 	 * @param	string	(optional) Type of sort (defaults to ascending)
 	 * @return	null
@@ -234,7 +228,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * object as dirty. It also normalizes the arguments so that
 	 * the query processor doesn't need any more overhead.
 	 *
-	 * @access	public
 	 * @param	string	Name of database field to filter by
 	 * @param	variant	value(s) to filter with (could be array of values)
 	 * @param	string	(optional) Operator to filter with (defaults to equals)
@@ -284,7 +277,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * this ensures that the requested value will be output when
 	 * the object is echoed, etc.
 	 *
-	 * @access	magic
 	 * @return	string		Value specified in earlier ->getFoo()
 	 */
 	function __toString() {
@@ -296,7 +288,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * In the future this will need to be delegated to db specifiec functions
 	 * to handle the different nuances of each db's SQL implementation.
 	 * 
-	 * @access	private
 	 * @return	NULL
 	 */
 	private function executeQuery() {
@@ -317,7 +308,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * recordset.  Will execute (or re-execute) the object's 
 	 * query if needed.
 	 *
-	 * @access	public
 	 * @param	string		Column name.
 	 * @return	string		Column value at current cursor position.
 	 */
@@ -328,7 +318,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	/** Returns an array of this table's column names.
 	 *
-	 * @access	public
 	 * @return	array		This model's table's column names
 	 */
 	public function getColumns() {
@@ -340,49 +329,45 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function setConn( $conn ) { $this->_conn = $conn; }
 	public function getConn() { return( $this->_conn ); }
 
+
+	public function __get( $name ) {
+
+		//See if they're requesting a foreign keyed table
+		foreach( $this->getTable()->getFKs() as $obFK ) {
+			if( $obFK->getFKTable() == $name ) {
+				$fkTable = $this->lazyLoad( $name, $obFK->getFKName(), $obFK->getName() );
+				return( $fkTable );
+			}
+		}
+
+		//See if they're requesting a referencing table
+		foreach( $this->getTable()->getRefs() as $obRef ) {
+			if( $obRef->getRefTable() == $name ) {
+				$refTable = $this->lazyLoad( $name, $obRef->getRefName(), $obRef->getName() );
+				return( $refTable );
+			}
+		}
+
+		//must be a column
+		if( in_array( $name, $this->getTable()->getColumns() ) ) {
+			$this->_stringValue = (string)$this->getValue( $name );
+			return( $this );
+		}
+
+		throw new Exception( "Unable to find a gettable property for \"$name\"." );
+	}
+
 	/** Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
 	 * When ->get-ing, method will attempt to figure out whether caller is
 	 * asking for a column value, a foreigned keyed table, or a referencing table
 	 * and ether return the column's value or a model of the requested table.
 	 *
-	 * @access	magic
 	 * @param	string		Name of method caller requested.
 	 * @param	array		Array of arguments caller supplied to method.
 	 * @return	variant		Will return either this object, or fk/reference table object
 	 */
 	function __call( $name, $argument ) {
 		
-		if( strtolower( substr( $name, 0, 3 ) ) == "get" ) {
-
-			//Extrac the subject being requested for 
-			$subject = strtolower( substr( $name, 3 ) );
-
-			//See if they're requesting a foreign keyed table
-			foreach( $this->getTable()->getFKs() as $obFK ) {
-				if( $obFK->getFKTable() == $subject ) {
-					$fkTable = $this->lazyLoad( $subject, $obFK->getFKName(), $obFK->getName() );
-					return( $fkTable );
-				}
-			}
-
-			//See if they're requesting a referencing table
-			foreach( $this->getTable()->getRefs() as $obRef ) {
-				if( $obRef->getRefTable() == $subject ) {
-					$refTable = $this->lazyLoad( $subject, $obRef->getRefName(), $obRef->getName() );
-					return( $refTable );
-				}
-			}
-
-			//must be a column
-			if( in_array( $subject, $this->getTable()->getColumns() ) ) {
-				$this->_stringValue = (string)$this->getValue( $subject );
-				return( $this );
-			}
-
-			throw new Exception( "Unable to find a gettable property for \"$subject\"." );
-
-		}
-
 		if( strtolower( substr( $name, 0, 5 ) ) == "where" ) {
 
 			//Extrac the subject being requested for 
