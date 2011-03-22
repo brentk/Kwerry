@@ -1,4 +1,11 @@
 <?
+/**
+ * Kwerry ORM. A small, introspection based PHP ORM.
+ * 
+ * @author	Brent Kelly <brenttkelly@gmail.com>
+ * @version	.5
+ */
+
 error_reporting( E_ALL );
 class FK {
 	private $_name;
@@ -67,7 +74,7 @@ class database {
 		throw new Exception( "::introspection not implemented!" );
 	}
 	public function execute() {
-		throw new Exception( "::connect not implemented!" );
+		throw new Exception( "::execute not implemented!" );
 	}
 }
 
@@ -89,7 +96,6 @@ class postgresql extends database {
 	/** Hashes and prepares sql queries. Searches for hash and returns already
 	 * prepared statement if applicable.
 	 * 
-	 * @access	private
 	 * @param	string		SQL Statement to prepare/return
 	 * @return	string		Prepared statement's name
 	 */
