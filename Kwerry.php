@@ -75,7 +75,6 @@ class Table {
 		}
 		return false;
 	}
-
 }
 
 class database {
@@ -118,12 +117,26 @@ class Kwerry implements arrayaccess, iterator, countable {
 	private $_stringValue;
 	private $_currentRow = 0;
 	private $_recordset = array();
+	private $_updateBuffer = array();
+	private $_isAddingNew = false;
 	private $_connectionName;
 
 	public static $_connection = array();
 
+	public function clear() {
+		$this->_where		= NULL;
+		$this->_order		= NULL;
+		$this->_stringValue	= NULL;
+		$this->_isAddingNew	= false;
+		$this->_currentRow	= 0;
+		$this->_relationship	= array();
+		$this->_recrodset	= array();
+		$this->_updateBuffer	= array();
+		$this->isDirty( false );
+	}
 
-	/** Attmps to find a model on the path. If on is not found, attempts
+	/**
+	 * Attmps to find a model on the path. If on is not found, attempts
 	 * to create a vanilla model by examining the database schema.
 	 *
 	 * @param	string	Name of requested table/model
@@ -203,7 +216,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->buildDataModel( $tableName );
 	}
 
-	/** isDirty is used to let the object know whether or not 
+	/**
+	 * isDirty is used to let the object know whether or not 
 	 * the parameters of the query have changed. If so, we need to
 	 * execute or re-execute the query with the lastest query.
 	 * 
@@ -217,7 +231,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $this->_isDirty );
 	}
 
-	/** Build and cache relateed models. Return cached versions if
+	/**
+	 * Build and cache relateed models. Return cached versions if
 	 * previously built.
 	 *
 	 * @param	string	name of table 
@@ -238,7 +253,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $this->_relationship[ $hash ] );
 	}
 
-	/** Create an order by clause to add to the query and sets the 
+	/**
+	 * Create an order by clause to add to the query and sets the 
 	 * object as dirty. 
 	 *
 	 * @param	string	Name of database field to sort by
@@ -256,7 +272,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	}
 
-	/** Create a where clause to add to the query and sets the 
+	/**
+	 * Create a where clause to add to the query and sets the 
 	 * object as dirty. It also normalizes the arguments so that
 	 * the query processor doesn't need any more overhead.
 	 *
@@ -305,7 +322,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return;
 	}
 
-	/** Once the call has built a query and requested a column,
+	/**
+	 * Once the call has built a query and requested a column,
 	 * this ensures that the requested value will be output when
 	 * the object is echoed, etc.
 	 *
@@ -315,7 +333,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $this->_stringValue );
 	}
 
-	/** Actual execution of built queries.  Handles compiling all the 
+	/**
+	 * Actual execution of built queries.  Handles compiling all the 
 	 * where and sort properties and compiles it into an actual SQL query.
 	 * In the future this will need to be delegated to db specifiec functions
 	 * to handle the different nuances of each db's SQL implementation.
@@ -336,7 +355,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->isDirty( false );
 	}
 
-	/** Returns a column's value at the current cursor in the 
+	/**
+	 * Returns a column's value at the current cursor in the 
 	 * recordset.  Will execute (or re-execute) the object's 
 	 * query if needed.
 	 *
@@ -345,10 +365,18 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	function getValue( $column ) {
 		if( $this->isDirty() ) { $this->executeQuery(); }
+
+		if( count( $this->_recordset ) == 0 )
+			throw new Exception( "Attempting to access property \"{$column}\" in empty recordset." );
+
+		if( ! array_key_exists( $this->_currentRow, $this->_recordset ) )
+			throw new Exception( "Attempting to access property \"{$column}\" at unkown recordset offset \"{$this->_currentRow}\"." );
+
 		return( $this->_recordset[ $this->_currentRow ][ $column ] );
 	}
 
-	/** Returns an array of this table's column names.
+	/**
+	 * Returns an array of this table's column names.
 	 *
 	 * @return	array		This model's table's column names
 	 */
@@ -361,8 +389,47 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function setConn( $conn ) { $this->_conn = $conn; }
 	public function getConn() { return( $this->_conn ); }
 
+	public function __set( $name, $value ) {
 
+		if( $this->getTable()->hasColumn( $name ) ) {
+			$this->_updateBuffer[ $name ] = $value;
+		}
+
+	}
+
+	protected function isAddingNew( $value = NULL ) {
+		if( is_null( $value ) ) {
+			return( $this->_isAddingNew );
+		}
+		$this->_isAddingNew = $value;
+	}
+
+	public function update() {
+		if( $this->isAddingNew() ) {
+			Kwerry::$_connection[ $this->_connectionName ]->insert( $this->_updateBuffer );
+			$this->isAddingNew( false );
+		} else {
+			$values = Kwerry::$_connection[ $this->_connectionName ]->update( $this->_updateBuffer, $this );
+			$this->_recordset[ $this->_currentRow ] = $values[0];
+		}
+
+		$this->_updateBuffer = array();
+	}
+
+	/**
+	 * Magic get function used to pull column values, foreign
+	 * keyed tables, or referecing tables.
+	 *
+	 * @param	string		Property name.
+	 * @return	object		Reference to current, keyed, or referencing Kwerry object.
+	 */
 	public function __get( $name ) {
+
+		//Check for column
+		if( $this->getTable()->hasColumn( $name ) ) {
+			$this->_stringValue = (string)$this->getValue( $name );
+			return( $this );
+		}
 
 		//See if they're requesting a foreign keyed table
 		foreach( $this->getTable()->getFKs() as $obFK ) {
@@ -380,16 +447,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 			}
 		}
 
-		//must be a column
-		if( $this->getTable()->hasColumn( $name ) ) {
-			$this->_stringValue = (string)$this->getValue( $name );
-			return( $this );
-		}
-
-		throw new Exception( "Unable to find a gettable property for \"$name\"." );
+		throw new Exception( "No property named \"{$name}\" found in \"{$this->getTable()->getName()}\"." );
 	}
 
-	/** Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
+	/**
+	 * Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
 	 * When ->get-ing, method will attempt to figure out whether caller is
 	 * asking for a column value, a foreigned keyed table, or a referencing table
 	 * and ether return the column's value or a model of the requested table.

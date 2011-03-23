@@ -12,11 +12,12 @@ $kwerry_opts[ "default" ][ "port" ]	= "5432";
 $kwerry_opts[ "default" ][ "dbname" ]	= "bkellydb";
 $kwerry_opts[ "default" ][ "username" ]	= "brentkelly";
 $kwerry_opts[ "default" ][ "password" ]	= "p@\$\$w0rd";
-$kwerry_opts[ "default" ][ "prefix" ]	= "tbl_";
-$kwerry_opts[ "default" ][ "suffix" ]	= "";
+//$kwerry_opts[ "default" ][ "prefix" ]	= "tbl_";
+//$kwerry_opts[ "default" ][ "suffix" ]	= "";
 
 try{
 
+	/*
 	$writer = Kwerry::model( "tbl_writer" );
 	$news = $writer->whereName( "Brent" )->tbl_news->sortInsertstamp();
 
@@ -27,8 +28,18 @@ try{
 			echo $comment->date."\n";
 		}
 	}
+	*/
 
-	$obTest = Kwerry::model( "tbl_test" );
+	
+
+	$test = Kwerry::model( "tbl_test" );
+	$test->whereTest_ID( 2 );
+	echo $test->testname."\n";
+	$test->testname = "testtwo";
+	$test->update();
+	echo $test->testname."\n";
+	
+
 } catch( Exception $e ) {
 	echo "\n********* ERROR ***********\n";
 	echo $e->getMessage()."\n\n";

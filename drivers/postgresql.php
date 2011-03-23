@@ -233,5 +233,33 @@ class postgresql extends database {
 		$recordset = pg_fetch_all( $result );
 		return( $recordset );
 	}
+
+	function update( $columns, $kwerry ) {
+
+		$pkName = $kwerry->getTable()->getPK();
+		$pkValue = (string)$kwerry->$pkName;
+
+		$comma = " SET ";
+		$param = array();
+
+		$sql = "UPDATE ".$kwerry->getTable()->getName();
+
+		foreach( $columns as $name => $value ) {
+			$param[] = $value;
+			$sql .= $comma . $name . " = $" . count( $param );
+			$comma = ", ";
+		}
+
+		$param[] = $pkValue;
+		$sql .= " WHERE " . $pkName . " = $" . count( $param );
+
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+
+		/* return the new values so the kwerry object can update them */
+		$sql = "SELECT * FROM " . $kwerry->getTable()->getName() . " WHERE " . $pkName . " = $1 ";
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $pkValue ) );
+		$recordset = pg_fetch_all( $result );
+		return( $recordset );
+	}
 }
 
