@@ -163,6 +163,28 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $kwerry );
 	}
 
+	function createConnection( $dbclass, $connectionName ) {
+		global $kwerry_opts;
+
+		$this->_connectionName = $connectionName;
+
+		if( array_key_exists( $connectionName, Kwerry::$_connection ) ) {
+			return;
+		}
+
+		Kwerry::$_connection[ $this->_connectionName ] = new $dbclass();
+		Kwerry::$_connection[ $this->_connectionName ]->setHost(	$kwerry_opts[ $connectionName ][ "host" ] );
+		Kwerry::$_connection[ $this->_connectionName ]->setPort(	$kwerry_opts[ $connectionName ][ "port" ] );
+		Kwerry::$_connection[ $this->_connectionName ]->setDBName(	$kwerry_opts[ $connectionName ][ "dbname" ] );
+		Kwerry::$_connection[ $this->_connectionName ]->setUsername(	$kwerry_opts[ $connectionName ][ "username" ] );
+		Kwerry::$_connection[ $this->_connectionName ]->setPassword(	$kwerry_opts[ $connectionName ][ "password" ] );
+		Kwerry::$_connection[ $this->_connectionName ]->connect();
+	}
+
+	function getConnection() {
+		return( Kwerry::$_connection[ $this->_connectionName ] );
+	}
+
 	/** 
 	 * Uses the connection's database class's introspection to
 	 * create a model of the table's layout. If a defined class 
@@ -175,7 +197,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$obTable = new Table();
 		$obTable->setName( $tableName );
 		$this->setTable( $obTable );
-		Kwerry::$_connection[ $this->_connectionName ]->introspection( $obTable );
+		$this->getConnection()->introspection( $obTable );
 	}
 
 	function __construct( $tableName, $connectionName ) {
@@ -200,20 +222,10 @@ class Kwerry implements arrayaccess, iterator, countable {
 		if( ! class_exists( $dbclass ) ) {
 			throw new Exception( "Driver class not found for dbtype: \"".$dbclass."\"." );
 		}
-		$this->_connectionName = $connectionName;
 
-		//Setup this db connection if it hasn't already been 
-		if( ! isset( Kwerry::$_connection[ $this->_connectionName ] ) ) {
-			Kwerry::$_connection[ $this->_connectionName ] = new $dbclass();
-			Kwerry::$_connection[ $this->_connectionName ]->setHost(	$kwerry_opts[ $connectionName ][ "host" ] );
-			Kwerry::$_connection[ $this->_connectionName ]->setPort(	$kwerry_opts[ $connectionName ][ "port" ] );
-			Kwerry::$_connection[ $this->_connectionName ]->setDBName(	$kwerry_opts[ $connectionName ][ "dbname" ] );
-			Kwerry::$_connection[ $this->_connectionName ]->setUsername(	$kwerry_opts[ $connectionName ][ "username" ] );
-			Kwerry::$_connection[ $this->_connectionName ]->setPassword(	$kwerry_opts[ $connectionName ][ "password" ] );
-			Kwerry::$_connection[ $this->_connectionName ]->connect();		
-		}
-
+		$this->createConnection( $dbclass, $connectionName );
 		$this->buildDataModel( $tableName );
+		$this->isDirty( true );
 	}
 
 	/**
@@ -343,7 +355,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	private function executeQuery() {
 
-		$recordset = Kwerry::$_connection[ $this->_connectionName ]->execute( $this );		
+		$recordset = $this->getConnection()->execute( $this );
 		
 		if( $recordset === false ) {
 			$this->_recordset = array();
@@ -386,8 +398,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	public function setTable( $table ) { $this->_table = $table; }
 	public function getTable() { return( $this->_table ); }
-	public function setConn( $conn ) { $this->_conn = $conn; }
-	public function getConn() { return( $this->_conn ); }
 
 	public function __set( $name, $value ) {
 
@@ -406,10 +416,10 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	public function update() {
 		if( $this->isAddingNew() ) {
-			Kwerry::$_connection[ $this->_connectionName ]->insert( $this->_updateBuffer );
+			$this->getConnection()->insert( $this->_updateBuffer );
 			$this->isAddingNew( false );
 		} else {
-			$values = Kwerry::$_connection[ $this->_connectionName ]->update( $this->_updateBuffer, $this );
+			$values = $this->getConnection()->update( $this->_updateBuffer, $this );
 			$this->_recordset[ $this->_currentRow ] = $values[0];
 		}
 

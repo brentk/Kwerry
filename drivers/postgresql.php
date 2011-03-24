@@ -2,7 +2,7 @@
 class postgresql extends database {
 
 	private $_connection;
-	public static $_prepared_statement = array();
+	public $_prepared_statement = array();
 
 	public function connect() {
 		$connectionString = "";
@@ -21,10 +21,10 @@ class postgresql extends database {
 	 * @return	string		Prepared statement's name
 	 */
 	private function getQuery( $sql ) {
-		$index = array_search( $sql, postgresql::$_prepared_statement );
+		$index = array_search( $sql, $this->_prepared_statement );
 		if( $index === false ) {
-			$index = count( postgresql::$_prepared_statement );
-			postgresql::$_prepared_statement[ $index ] = $sql;
+			$index = count( $this->_prepared_statement );
+			$this->_prepared_statement[ $index ] = $sql;
 			$toss = pg_prepare( $this->_connection, $index, $sql );
 		}
 		return( $index );
