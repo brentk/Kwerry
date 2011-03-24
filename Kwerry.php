@@ -197,7 +197,10 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$obTable = new Table();
 		$obTable->setName( $tableName );
 		$this->setTable( $obTable );
-		$this->getConnection()->introspection( $obTable );
+		$this->getConnection()->introspection( $this->getTable() );
+		if( ! $this->getTable()->getPK() ) {
+			throw new Exception( "No primary key found in \"".$this->getTable()->getName()."\"." );
+		}
 	}
 
 	function __construct( $tableName, $connectionName ) {
