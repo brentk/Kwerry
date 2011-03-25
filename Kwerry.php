@@ -417,9 +417,14 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_isAddingNew = $value;
 	}
 
+	public function addnew() {
+		$this->isAddingNew( true );
+	}
+
 	public function update() {
 		if( $this->isAddingNew() ) {
-			$this->getConnection()->insert( $this->_updateBuffer );
+			$key = $this->getConnection()->insert( $this->_updateBuffer, $this );
+			echo "\n\t***$key***\n";
 			$this->isAddingNew( false );
 		} else {
 			$values = $this->getConnection()->update( $this->_updateBuffer, $this );

@@ -234,15 +234,15 @@ class postgresql extends database {
 		return( $recordset );
 	}
 
-	function update( $columns, $kwerry ) {
+	function update( $columns, Kwerry $parent ) {
 
-		$pkName = $kwerry->getTable()->getPK();
-		$pkValue = (string)$kwerry->$pkName;
+		$pkName = $parent->getTable()->getPK();
+		$pkValue = (string)$parent->$pkName;
 
 		$comma = " SET ";
 		$param = array();
 
-		$sql = "UPDATE ".$kwerry->getTable()->getName();
+		$sql = "UPDATE ".$parent->getTable()->getName();
 
 		foreach( $columns as $name => $value ) {
 			$param[] = $value;
@@ -256,10 +256,34 @@ class postgresql extends database {
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
 
 		/* return the new values so the kwerry object can update them */
-		$sql = "SELECT * FROM " . $kwerry->getTable()->getName() . " WHERE " . $pkName . " = $1 ";
+		$sql = "SELECT * FROM " . $parent->getTable()->getName() . " WHERE " . $pkName . " = $1 ";
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $pkValue ) );
 		$recordset = pg_fetch_all( $result );
 		return( $recordset );
+	}
+
+	function insert( $columns, Kwerry $parent ) {
+
+		$comma = "";
+		$param = array();
+		$paramString = "";
+
+		$sql = "INSERT INTO " . $parent->getTable()->getName() . " ( ";
+
+		foreach( $columns as $name => $value ) {
+			$param[] = $value;
+			$sql .= $comma . $name;
+			$paramString .= $comma . " $".count( $param );
+			$comma = ", ";
+		}
+
+		$sql .= " ) values ( " . $paramString . " )";
+
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$result = pg_execute( $this->_connection, $this->getQuery( "select lastval();" ), array() );
+		$recordset = pg_fetch_all( $result );
+		/* return the new values so the kwerry object can update them */
+		return( $recordset[ 0 ][ "lastval" ] );
 	}
 }
 

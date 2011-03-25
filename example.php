@@ -53,8 +53,18 @@ try{
 	$othertest->columnone = $value;
 	$othertest->update();
 	echo $othertest->columnone."\n";
-	
 
+	$othertest->clear();
+
+	$c1value = "colone_".rand( 100,999 );
+	echo "Setting columnone value to $c1value\n";
+	$c2value = "coltwo_".rand( 100,999 );
+	echo "Setting columnone value to $c2value\n";
+
+	$othertest->addnew();
+	$othertest->columnone = $c1value;
+	$othertest->columntwo = $c2value;
+	$othertest->update();
 
 } catch( Exception $e ) {
 	echo "\n********* ERROR ***********\n";
