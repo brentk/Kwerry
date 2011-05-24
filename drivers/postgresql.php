@@ -27,7 +27,7 @@ class postgresql extends database {
 			$this->_prepared_statement[ $index ] = $sql;
 			$toss = pg_prepare( $this->_connection, $index, $sql );
 		}
-		return( $index );
+		return $index;
 	}
 
 	private function getDataType( $type ) {
@@ -183,7 +183,7 @@ class postgresql extends database {
 		$this->populateRef( $obTable );
 	}
 
-	public function execute( &$obKwerry ) {
+	public function execute( Kwerry &$obKwerry ) {
 
 		$param = array();
 
@@ -231,7 +231,7 @@ class postgresql extends database {
 
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
 		$recordset = pg_fetch_all( $result );
-		return( $recordset );
+		return $recordset;
 	}
 
 	function update( $columns, Kwerry $parent ) {
@@ -259,7 +259,7 @@ class postgresql extends database {
 		$sql = "SELECT * FROM " . $parent->getTable()->getName() . " WHERE " . $pkName . " = $1 ";
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $pkValue ) );
 		$recordset = pg_fetch_all( $result );
-		return( $recordset );
+		return $recordset;
 	}
 
 	function insert( $columns, Kwerry $parent ) {
@@ -283,7 +283,28 @@ class postgresql extends database {
 		$result = pg_execute( $this->_connection, $this->getQuery( "select lastval();" ), array() );
 		$recordset = pg_fetch_all( $result );
 		/* return the new values so the kwerry object can update them */
-		return( $recordset[ 0 ][ "lastval" ] );
+		return $recordset[ 0 ][ "lastval" ];
 	}
+
+	function delete( Kwerry $parent ) {
+
+		$pkName = $parent->getTable()->getPK();
+		$pkValue = (string)$parent->$pkName;
+
+		$comma = " SET ";
+		$param = array();
+
+		$sql = "DELETE FROM ".$parent->getTable()->getName();
+
+		$param[] = $pkValue;
+		$sql .= " WHERE " . $pkName . " = $" . count( $param );
+
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+
+		/* return the new values so the kwerry object can update them */
+		return true;
+	}
+
+
 }
 

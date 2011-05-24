@@ -10,8 +10,8 @@ $kwerry_opts[ "default" ][ "dbtype" ]	= "postgresql";
 $kwerry_opts[ "default" ][ "host" ]	= "localhost";
 $kwerry_opts[ "default" ][ "port" ]	= "5432";
 $kwerry_opts[ "default" ][ "dbname" ]	= "bkellydb";
-$kwerry_opts[ "default" ][ "username" ]	= "brentkelly";
-$kwerry_opts[ "default" ][ "password" ]	= "p@\$\$w0rd";
+$kwerry_opts[ "default" ][ "username" ]	= "username";
+$kwerry_opts[ "default" ][ "password" ]	= "password";
 
 
 $kwerry_opts[ "testdb" ][ "dbtype" ]	= "postgresql";

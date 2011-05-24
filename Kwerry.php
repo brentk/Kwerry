@@ -130,7 +130,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_isAddingNew	= false;
 		$this->_currentRow	= 0;
 		$this->_relationship	= array();
-		$this->_recrodset	= array();
+		$this->_recordset	= array();
 		$this->_updateBuffer	= array();
 		$this->isDirty( false );
 	}
@@ -421,10 +421,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->isAddingNew( true );
 	}
 
-	public function update() {
+	public function save() {
 		if( $this->isAddingNew() ) {
 			$key = $this->getConnection()->insert( $this->_updateBuffer, $this );
-			echo "\n\t***$key***\n";
+			$method = "where" . $this->getTable()->getPK();
+			$this->$method( $key );
 			$this->isAddingNew( false );
 		} else {
 			$values = $this->getConnection()->update( $this->_updateBuffer, $this );
@@ -432,6 +433,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 
 		$this->_updateBuffer = array();
+	}
+
+	public function delete() {
+		$this->getConnection()->delete( $this );
+		$this->clear();
 	}
 
 	/**
@@ -469,7 +475,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Catch all fucntion for ->whereFoo(), ->sortFoo(), & ->getFoo().
+	 * Catch all fucntion for ->whereFoo(), & ->sortFoo().
 	 * When ->get-ing, method will attempt to figure out whether caller is
 	 * asking for a column value, a foreigned keyed table, or a referencing table
 	 * and ether return the column's value or a model of the requested table.
