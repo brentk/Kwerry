@@ -13,12 +13,14 @@ Example Usage
 
 To setup a connection, simply supply the following datapoints:
 
-`Kwerry::setConnection( "driver", "postgresql" );
+```php
+Kwerry::setConnection( "driver", "postgresql" );
 Kwerry::setConnection( "host", "localhost" );
 Kwerry::setConnection( "port", "5432" );
 Kwerry::setConnection( "dbname", "bookstore" );
 Kwerry::setConnection( "username", "mydbuser" );
-Kwerry::setConnection( "password", "secretpw" );`
+Kwerry::setConnection( "password", "secretpw" );
+```
 
 Then create the object by supplying a tablename:
 
