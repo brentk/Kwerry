@@ -119,9 +119,49 @@ class Kwerry implements arrayaccess, iterator, countable {
 	private $_recordset = array();
 	private $_updateBuffer = array();
 	private $_isAddingNew = false;
+
+	/**
+	 * @var		string		Which connection this model is using.
+	 */
 	private $_connectionName;
 
-	public static $_connection = array();
+	/**
+	 * @staticvar	array		Contains all defined connection details.
+	 */
+	public static $_connectionDetails = array();
+
+	/**
+	 * @staticvar	array		Contains all active connections.
+	 */
+	public static $_connections = array();
+
+	public static function setConnection() {
+
+		$connectionName	= "";
+		$settingName	= "";
+		$settingValue	= "";
+
+		if( func_num_args() < 2 || func_num_args() > 3 ) {
+			throw new Exception( "Kwerry::setConnection() requires the following arguments: ".
+				"connectionName [\"default\"], settingName, settingValue." );
+		}
+
+		if( func_num_args() == 2 ) {
+			$connectionName	= "default";
+			$settingName	= func_get_arg( 0 );
+			$settingValue	= func_get_arg( 1 );
+		} else {
+			$connectionName	= func_get_arg( 0 );
+			$settingName	= func_get_arg( 1 );
+			$settingValue	= func_get_arg( 2 );
+		}
+
+		if( ! array_key_exists( $connectionName, Kwerry::$_connectionDetails ) ) {
+			Kwerry::$_connectionDetails[ $connectionName ] = new stdClass();
+		}
+
+		Kwerry::$_connectionDetails[ $connectionName ]->$settingName = $settingValue;
+	}
 
 	public function clear() {
 		$this->_where		= NULL;
@@ -153,39 +193,55 @@ class Kwerry implements arrayaccess, iterator, countable {
 				require_once( $full_path );
 				if( class_exists( $tableName ) ) {
 					$kwerry = new $tableName( $connectionName );
-					return( $kwerry );
+					return $kwerry;
 				}
 			}
 		}
 
 		//If not, create one on the fly
 		$kwerry = new Kwerry( $tableName, $connectionName );
-		return( $kwerry );
+		return $kwerry;
 	}
 
-	function createConnection( $dbclass, $connectionName ) {
-		global $kwerry_opts;
+	function createConnection() {
 
-		$this->_connectionName = $connectionName;
-
-		if( array_key_exists( $connectionName, Kwerry::$_connection ) ) {
+		if( array_key_exists( $this->_connectionName, Kwerry::$_connections ) ) {
 			return;
 		}
 
-		Kwerry::$_connection[ $this->_connectionName ] = new $dbclass();
-		Kwerry::$_connection[ $this->_connectionName ]->setHost(	$kwerry_opts[ $connectionName ][ "host" ] );
-		Kwerry::$_connection[ $this->_connectionName ]->setPort(	$kwerry_opts[ $connectionName ][ "port" ] );
-		Kwerry::$_connection[ $this->_connectionName ]->setDBName(	$kwerry_opts[ $connectionName ][ "dbname" ] );
-		Kwerry::$_connection[ $this->_connectionName ]->setUsername(	$kwerry_opts[ $connectionName ][ "username" ] );
-		Kwerry::$_connection[ $this->_connectionName ]->setPassword(	$kwerry_opts[ $connectionName ][ "password" ] );
-		Kwerry::$_connection[ $this->_connectionName ]->connect();
+		$databaseDriver = Kwerry::$_connectionDetails[ $this->_connectionName ]->driver;
+
+		//Attempt to include the driver file
+		if( ! file_exists( "Kwerry/drivers/{$databaseDriver}.php" ) ) {
+			throw new Exception( "Database driver \"".$databaseDriver."\" not found." );
+		}
+
+		require_once( "Kwerry/drivers/{$databaseDriver}.php" );
+
+		if( ! class_exists( $databaseDriver ) ) {
+			throw new Exception( "Unable to find database driver class named \"{$databaseDriver}\"." );
+		}
+
+		$host		= Kwerry::$_connectionDetails[ $this->_connectionName ]->host;
+		$port		= Kwerry::$_connectionDetails[ $this->_connectionName ]->port;
+		$dbname		= Kwerry::$_connectionDetails[ $this->_connectionName ]->dbname;
+		$username	= Kwerry::$_connectionDetails[ $this->_connectionName ]->username;
+		$password	= Kwerry::$_connectionDetails[ $this->_connectionName ]->password;
+
+		Kwerry::$_connections[ $this->_connectionName ] = new $databaseDriver();
+		Kwerry::$_connections[ $this->_connectionName ]->setHost(	$host );
+		Kwerry::$_connections[ $this->_connectionName ]->setPort(	$port );
+		Kwerry::$_connections[ $this->_connectionName ]->setDBName(	$dbname );
+		Kwerry::$_connections[ $this->_connectionName ]->setUsername(	$username );
+		Kwerry::$_connections[ $this->_connectionName ]->setPassword(	$password );
+		Kwerry::$_connections[ $this->_connectionName ]->connect();
 	}
 
 	function getConnection() {
-		return( Kwerry::$_connection[ $this->_connectionName ] );
+		return Kwerry::$_connections[ $this->_connectionName ];
 	}
 
-	/** 
+	/**
 	 * Uses the connection's database class's introspection to
 	 * create a model of the table's layout. If a defined class 
 	 * exists, it can override this to build the table by hand to
@@ -204,29 +260,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	function __construct( $tableName, $connectionName ) {
-		global $kwerry_opts;
-
-		//Ensure that the options variable is kosher
-		if( ! $kwerry_opts ) { 
-			throw new Exception( "\$kwerry_opts Array not found!" );
-		}
-		if( ! is_array( $kwerry_opts ) ) { 
-			throw new Exception( "\$kwerry_opts not an Array!" );
-		}
-		$dbclass = $kwerry_opts[ $connectionName ][ "dbtype" ];
-
-		//Attempt to include the driver file
-		if( ! file_exists( "Kwerry/drivers/{$dbclass}.php" ) ) {
-			throw new Exception( "Database driver for dbtype \"".$dbclass."\" not found." );
-		}
-
-		require_once( "Kwerry/drivers/{$dbclass}.php" );
-
-		if( ! class_exists( $dbclass ) ) {
-			throw new Exception( "Driver class not found for dbtype: \"".$dbclass."\"." );
-		}
-
-		$this->createConnection( $dbclass, $connectionName );
+		$this->_connectionName = $connectionName;
+		$this->createConnection();
 		$this->buildDataModel( $tableName );
 		$this->isDirty( true );
 	}
