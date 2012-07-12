@@ -212,11 +212,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$databaseDriver = Kwerry::$_connectionDetails[ $this->_connectionName ]->driver;
 
 		//Attempt to include the driver file
-		if( ! file_exists( "Kwerry/drivers/{$databaseDriver}.php" ) ) {
+		if( ! file_exists( dirname(__FILE__)."/drivers/{$databaseDriver}.php" ) ) {
 			throw new Exception( "Database driver \"".$databaseDriver."\" not found." );
 		}
 
-		require_once( "Kwerry/drivers/{$databaseDriver}.php" );
+		require_once( dirname(__FILE__)."/drivers/{$databaseDriver}.php" );
 
 		if( ! class_exists( $databaseDriver ) ) {
 			throw new Exception( "Unable to find database driver class named \"{$databaseDriver}\"." );
