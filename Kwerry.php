@@ -569,7 +569,13 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 	public function offsetGet( $offset ) { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
-		return( $this->_recordset[ $offset ] ); 
+
+		if( $offset < 0 || $offset > count( $this->_recordset )-1) {
+			throw new Exception( "Index \"$offset\" does not exist." );
+		}
+
+		$this->_currentRow = $offset;
+		return $this;
 	}
 	public function offsetSet( $offset, $value ) { 
 		throw new Exception( "You may not add records this way." ); 
