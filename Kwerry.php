@@ -115,7 +115,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public $_order;
 	public $_limit;
 
-	private $_stringValue;
 	private $_currentRow = 0;
 	private $_recordset = array();
 	private $_updateBuffer = array();
@@ -167,7 +166,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function clear() {
 		$this->_where		= NULL;
 		$this->_order		= NULL;
-		$this->_stringValue	= NULL;
 		$this->_isAddingNew	= false;
 		$this->_currentRow	= 0;
 		$this->_relationship	= array();
@@ -362,17 +360,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Once the call has built a query and requested a column,
-	 * this ensures that the requested value will be output when
-	 * the object is echoed, etc.
-	 *
-	 * @return	string		Value specified in earlier ->getFoo()
-	 */
-	function __toString() {
-		return( $this->_stringValue );
-	}
-
-	/**
 	 * Actual execution of built queries.  Handles compiling all the 
 	 * where and sort properties and compiles it into an actual SQL query.
 	 * In the future this will need to be delegated to db specifiec functions
@@ -475,8 +462,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 		//Check for column
 		if( $this->getTable()->hasColumn( $name ) ) {
-			$this->_stringValue = (string)$this->getValue( $name );
-			return( $this );
+			return $this->getValue( $name );
 		}
 
 		//See if they're requesting a foreign keyed table
