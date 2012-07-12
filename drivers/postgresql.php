@@ -189,7 +189,7 @@ class postgresql extends database {
 		$this->populateRef( $obTable );
 	}
 
-	public function execute( Kwerry &$kwerry ) {
+	public function buildSelectSQL( Kwerry &$kwerry ) {
 
 		$param = array();
 
@@ -254,7 +254,18 @@ class postgresql extends database {
 			$sql .= " LIMIT $" . count( $param ) . " ";
 		}
 
+		return array( $sql, $param );
+	}
+	public function execute( Kwerry &$kwerry ) {
+
+		list( $sql, $param ) = $this->buildSelectSQL( $kwerry );
+
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+
+		if( $result === false ) {
+			throw new Exception( pg_last_error( $this->_connection ) );
+		}
+
 		$recordset = pg_fetch_all( $result );
 		return $recordset;
 	}
@@ -326,7 +337,6 @@ class postgresql extends database {
 
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
 
-		/* return the new values so the kwerry object can update them */
 		return true;
 	}
 
