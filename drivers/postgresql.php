@@ -4,6 +4,12 @@ class postgresql extends database {
 	private $_connection;
 	public $_prepared_statement = array();
 
+	public function __construct() {
+		if( ! function_exists( "pg_connect" ) ) {
+			throw new Exception( "PostgreSQL PHP support not installed." );
+		}
+	}
+
 	public function connect() {
 		$connectionString = "";
 		$connectionString .= " host=".$this->getHost();
