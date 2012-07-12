@@ -510,14 +510,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Catch all fucntion for ->whereFoo(), & ->sortFoo().
-	 * When ->get-ing, method will attempt to figure out whether caller is
-	 * asking for a column value, a foreigned keyed table, or a referencing table
-	 * and ether return the column's value or a model of the requested table.
+	 * Catch all function for ->whereColumnName(), & ->sortColumnName().
 	 *
 	 * @param	string		Name of method caller requested.
 	 * @param	array		Array of arguments caller supplied to method.
-	 * @return	variant		Will return either this object, or fk/reference table object
+	 * @return	object		Will return this object
 	 */
 	function __call( $name, $argument ) {
 		
