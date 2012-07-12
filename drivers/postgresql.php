@@ -189,46 +189,60 @@ class postgresql extends database {
 		$this->populateRef( $obTable );
 	}
 
-	public function execute( Kwerry &$obKwerry ) {
+	public function execute( Kwerry &$kwerry ) {
 
 		$param = array();
 
-		$sql = " SELECT * FROM ".$obKwerry->getTable()->getName() . " ";
+		$sql = " SELECT * FROM ".$kwerry->getTable()->getName() . " ";
 
-		if( count( $obKwerry->_where ) ) {
+		if( count( $kwerry->_where ) ) {
 
-			$where = "";
+			$whereClause = "";
 			$and = "WHERE";
 
-			foreach( $obKwerry->_where as $aryWhere ) {
+			foreach( $kwerry->_where as $where ) {
 
-				$where .= " " . $and . " ";
-				$where .= $aryWhere[ "field" ] . " ";
-				$where .= $aryWhere[ "operator" ] . " ";
+				$whereClause .= " " . $and . " ";
+				$whereClause .= $where[ "field" ] . " ";
 
-				if( is_array( $aryWhere[ "value" ] ) ) {
+				//I CAN NOT get pg_prepare/pg_execute to play nice with null literals...
+				if( NULL === $where["value"] ) {
+					$is_equal = array( "IS", "=" );
+					$not_equal = array( "IS NOT", "<>", "!=" );
+
+					if( in_array( $where["operator"], $is_equal ) ) {
+						$whereClause .= " IS NULL ";
+					} else if( in_array( $where["operator"], $not_equal ) ) {
+						$whereClause .= " IS NOT NULL ";
+					} else {
+						throw new Exception( "Non-applicable operator \"".$where["operator"]."\" used with NULL value." );
+					}
+
+				} else if( is_array( $where[ "value" ] ) ) {
+					$whereClause .= $where[ "operator" ] . " ";
 					$comma = "";
-					foreach( $aryWhere[ "value" ] as $value ) {
+					foreach( $where[ "value" ] as $value ) {
 						$param[] = $value;
-						$where .= $comma . "$".count( $param )." ";
+						$whereClause .= $comma . "$".count( $param )." ";
 						$comma = ",";
 					}
 				} else {
-					$param[] = $aryWhere[ "value" ];
-					$where .= "$".count( $param )." ";
+					$param[] = $where[ "value" ];
+					$whereClause .= $where[ "operator" ] . " ";
+					$whereClause .= "$".count( $param )." ";
 				}
 				
 				$and = "AND";
 			}
 	
-			$sql .= $where;
+			$sql .= $whereClause;
 		}
 
-		if( count( $obKwerry->_order ) ) {
+		if( count( $kwerry->_order ) ) {
 			$orderBy = "";
 			$comma = "ORDER BY";
 
-			foreach( $obKwerry->_order as $sort ) {
+			foreach( $kwerry->_order as $sort ) {
 				$orderBy .= " " . $comma . " " . $sort[ "field" ] . " " . $sort[ "type" ];
 				$comma = ",";
 			}
