@@ -249,6 +249,11 @@ class postgresql extends database {
 			$sql .= $orderBy;
 		}
 
+		if( ! is_null($kwerry->_limit) ) {
+			$param[] = $kwerry->_limit;
+			$sql .= " LIMIT $" . count( $param ) . " ";
+		}
+
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
 		$recordset = pg_fetch_all( $result );
 		return $recordset;

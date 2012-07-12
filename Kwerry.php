@@ -113,6 +113,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public $_isDirty;
 	public $_where;
 	public $_order;
+	public $_limit;
 
 	private $_stringValue;
 	private $_currentRow = 0;
@@ -263,6 +264,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_connectionName = $connectionName;
 		$this->createConnection();
 		$this->buildDataModel( $tableName );
+		$this->_limit = null;
 		$this->isDirty( true );
 	}
 
@@ -548,6 +550,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 
 		throw new Exception( "Unknown method \"$name\"." );
+	}
+
+	/** Limits query to only return specified amount of records.
+	 *
+	 * @param	integer		number of record to return
+	 * @return	object		Will return this object
+	*/
+	public function limit( $limit ) {
+		$this->_limit = $limit;
+		return $this;
 	}
 
 	//arrayaccess, iterator, and count methods 
