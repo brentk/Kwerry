@@ -515,7 +515,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			//See if we can locate the column they're requesting
 			if( $this->getTable()->hasColumn( $subject ) ) {
 
-				$value	= (string)$argument[ 0 ];
+				$value = $argument[ 0 ];
 				$operator = "=";
 				if( isset( $arugment[ 1 ] ) ) {
 					$operator = $arugment[ 1 ];
