@@ -350,19 +350,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 			}
 		}
 
-		// If the value is null, use the correct operator
-		if( is_null( $value ) ) {
-			switch( $operator ) {
-				case( "=" ):
-					$operator = "IS";
-					break;
-				case( "!=" ):
-				case( "<>" ):
-					$operator = "IS NOT";
-					break;
-			}
-		}
-	
 		$where = array();
 		$where[ "field" ]	= $field;
 		$where[ "operator" ]	= $operator;
