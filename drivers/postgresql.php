@@ -94,7 +94,7 @@ class postgresql extends database {
 		$aryColumns = pg_fetch_all( $result );
 
 		if( $aryColumns === false ) {
-			throw new Exception( "Unable to list columns in table $tableName\n\n" );
+			throw new Exception( "Unable to find table ".$obTable->getName()."\n\n" );
 		}
 
 		foreach( $aryColumns as $record ) {
