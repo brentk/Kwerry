@@ -507,8 +507,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 				$value = $argument[ 0 ];
 				$operator = "=";
-				if( isset( $arugment[ 1 ] ) ) {
-					$operator = $arugment[ 1 ];
+				if( isset( $argument[ 1 ] ) ) {
+					$operator = $argument[ 1 ];
 				}
 
 				$this->addWhere( $subject, $value, $operator );
