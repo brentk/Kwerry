@@ -114,6 +114,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public $_where;
 	public $_order;
 	public $_limit;
+	public $_offset;
 
 	private $_currentRow = 0;
 	private $_recordset = array();
@@ -171,6 +172,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_relationship	= array();
 		$this->_recordset	= array();
 		$this->_updateBuffer	= array();
+		$this->_limit		= NULL;
+		$this->_offset		= NULL;
 		$this->isDirty( false );
 	}
 
@@ -263,6 +266,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->createConnection();
 		$this->buildDataModel( $tableName );
 		$this->_limit = null;
+		$this->_offset = null;
 		$this->isDirty( true );
 	}
 
@@ -545,6 +549,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 	*/
 	public function limit( $limit ) {
 		$this->_limit = $limit;
+		return $this;
+	}
+
+	/** Offsets query to only return specified amount of records.
+	 *
+	 * @param	integer		number of record to return
+	 * @return	object		Will return this object
+	*/
+	public function offset( $offset ) {
+		$this->_offset = $offset;
 		return $this;
 	}
 

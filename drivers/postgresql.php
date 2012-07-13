@@ -254,6 +254,11 @@ class postgresql extends database {
 			$sql .= " LIMIT $" . count( $param ) . " ";
 		}
 
+		if( ! is_null($kwerry->_offset) ) {
+			$param[] = $kwerry->_offset;
+			$sql .= " OFFSET $" . count( $param ) . " ";
+		}
+
 		return array( $sql, $param );
 	}
 	public function execute( Kwerry &$kwerry ) {
