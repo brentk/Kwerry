@@ -572,6 +572,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	object		Will return this object
 	*/
 	public function limit( $limit ) {
+		$this->isDirty( true );
 		$this->_limit = $limit;
 		return $this;
 	}
@@ -582,6 +583,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	object		Will return this object
 	*/
 	public function offset( $offset ) {
+		$this->isDirty( true );
 		$this->_offset = $offset;
 		return $this;
 	}
