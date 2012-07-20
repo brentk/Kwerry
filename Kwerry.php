@@ -386,6 +386,29 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
+	 * Runs straight SQL and attempts to wire the Kwerry object to
+	 * act like the results is a normal internal Kwerry recordset.
+	 *
+	 * FIXME: Object needs to be informed that it's hydrated and no longer
+	 * accept chained ->where()'s, ->sort()'s, etc.
+	 *
+	 * @param	string		SQL SELECT statement
+	 * @param	string		Parameters for parameterized SQL statement
+	 * @throws	Exception	Non-SELECT statement passed in
+	 * @return	string		Current Kwerry object
+	 */
+	public function hydrate( $sql, Array $params ) {
+
+		if( "select" != trim(strtolower(substr($sql,0,6))) ){
+			throw new Exception( "Only SELECT statements can be passed to Kwerry::hydrate()." );
+		}
+
+		$this->_recordset = $this->getConnection()->runSQL( $sql, $params );
+
+		return $this;
+	}
+
+	/**
 	 * Returns a column's value at the current cursor in the 
 	 * recordset.  Will execute (or re-execute) the object's 
 	 * query if needed.

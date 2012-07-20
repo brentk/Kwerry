@@ -189,16 +189,12 @@ class postgresql extends database {
 		$this->populateRef( $obTable );
 	}
 
-	public function buildSelectSQL( Kwerry &$kwerry ) {
+	protected function buildWhere( &$kwerry, Array &$params ) {
 
-		$param = array();
-
-		$sql = " SELECT * FROM ".$kwerry->getTable()->getName() . " ";
+		$whereClause = "";
+		$and = "WHERE";
 
 		if( count( $kwerry->_where ) ) {
-
-			$whereClause = "";
-			$and = "WHERE";
 
 			foreach( $kwerry->_where as $where ) {
 
@@ -222,21 +218,30 @@ class postgresql extends database {
 					$whereClause .= $where[ "operator" ] . " ";
 					$comma = "";
 					foreach( $where[ "value" ] as $value ) {
-						$param[] = $value;
-						$whereClause .= $comma . "$".count( $param )." ";
+						$params[] = $value;
+						$whereClause .= $comma . "$".count( $params )." ";
 						$comma = ",";
 					}
 				} else {
-					$param[] = $where[ "value" ];
+					$params[] = $where[ "value" ];
 					$whereClause .= $where[ "operator" ] . " ";
-					$whereClause .= "$".count( $param )." ";
+					$whereClause .= "$".count( $params )." ";
 				}
 				
 				$and = "AND";
 			}
-	
-			$sql .= $whereClause;
 		}
+	
+		return $whereClause;
+	}
+
+	public function buildSelectSQL( Kwerry &$kwerry ) {
+
+		$params = array();
+
+		$sql = " SELECT * FROM ".$kwerry->getTable()->getName() . " ";
+
+		$sql .= $this->buildWhere( $kwerry, $params );
 
 		if( count( $kwerry->_order ) ) {
 			$orderBy = "";
@@ -250,22 +255,21 @@ class postgresql extends database {
 		}
 
 		if( ! is_null($kwerry->_limit) ) {
-			$param[] = $kwerry->_limit;
-			$sql .= " LIMIT $" . count( $param ) . " ";
+			$params[] = $kwerry->_limit;
+			$sql .= " LIMIT $" . count( $params ) . " ";
 		}
 
 		if( ! is_null($kwerry->_offset) ) {
-			$param[] = $kwerry->_offset;
-			$sql .= " OFFSET $" . count( $param ) . " ";
+			$params[] = $kwerry->_offset;
+			$sql .= " OFFSET $" . count( $params ) . " ";
 		}
 
-		return array( $sql, $param );
+		return array( $sql, $params );
 	}
-	public function execute( Kwerry &$kwerry ) {
 
-		list( $sql, $param ) = $this->buildSelectSQL( $kwerry );
+	public function runSQL( $sql, $params ) {
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $params );
 
 		if( $result === false ) {
 			throw new Exception( pg_last_error( $this->_connection ) );
@@ -275,26 +279,31 @@ class postgresql extends database {
 		return $recordset;
 	}
 
+	public function execute( Kwerry &$kwerry ) {
+		list( $sql, $params ) = $this->buildSelectSQL( $kwerry );
+		return $this->runSQL( $sql, $params );
+	}
+
 	function update( $columns, Kwerry $parent ) {
 
 		$pkName = $parent->getTable()->getPK();
 		$pkValue = (string)$parent->$pkName;
 
 		$comma = " SET ";
-		$param = array();
+		$params = array();
 
 		$sql = "UPDATE ".$parent->getTable()->getName();
 
 		foreach( $columns as $name => $value ) {
-			$param[] = $value;
-			$sql .= $comma . $name . " = $" . count( $param );
+			$params[] = $value;
+			$sql .= $comma . $name . " = $" . count( $params );
 			$comma = ", ";
 		}
 
-		$param[] = $pkValue;
-		$sql .= " WHERE " . $pkName . " = $" . count( $param );
+		$params[] = $pkValue;
+		$sql .= " WHERE " . $pkName . " = $" . count( $params );
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $params );
 
 		/* return the new values so the kwerry object can update them */
 		$sql = "SELECT * FROM " . $parent->getTable()->getName() . " WHERE " . $pkName . " = $1 ";
@@ -306,21 +315,21 @@ class postgresql extends database {
 	function insert( $columns, Kwerry $parent ) {
 
 		$comma = "";
-		$param = array();
+		$params = array();
 		$paramString = "";
 
 		$sql = "INSERT INTO " . $parent->getTable()->getName() . " ( ";
 
 		foreach( $columns as $name => $value ) {
-			$param[] = $value;
+			$params[] = $value;
 			$sql .= $comma . $name;
-			$paramString .= $comma . " $".count( $param );
+			$paramString .= $comma . " $".count( $params );
 			$comma = ", ";
 		}
 
 		$sql .= " ) values ( " . $paramString . " )";
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $params );
 		$result = pg_execute( $this->_connection, $this->getQuery( "select lastval();" ), array() );
 		$recordset = pg_fetch_all( $result );
 		/* return the new values so the kwerry object can update them */
@@ -333,14 +342,14 @@ class postgresql extends database {
 		$pkValue = (string)$parent->$pkName;
 
 		$comma = " SET ";
-		$param = array();
+		$params = array();
 
 		$sql = "DELETE FROM ".$parent->getTable()->getName();
 
-		$param[] = $pkValue;
-		$sql .= " WHERE " . $pkName . " = $" . count( $param );
+		$params[] = $pkValue;
+		$sql .= " WHERE " . $pkName . " = $" . count( $params );
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $param );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $params );
 
 		return true;
 	}
