@@ -434,6 +434,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	public function addnew() {
 		$this->isAddingNew( true );
+		return $this;
 	}
 
 	public function save() {
