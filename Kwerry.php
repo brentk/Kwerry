@@ -397,13 +397,18 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @throws	Exception	Non-SELECT statement passed in
 	 * @return	string		Current Kwerry object
 	 */
-	public function hydrate( $sql, Array $params ) {
+	public function hydrate( $sql, Array $params = NULL) {
 
 		if( "select" != trim(strtolower(substr($sql,0,6))) ){
 			throw new Exception( "Only SELECT statements can be passed to Kwerry::hydrate()." );
 		}
 
+		if( is_null( $params ) ) {
+			$params = array();
+		}
+
 		$this->_recordset = $this->getConnection()->runSQL( $sql, $params );
+		$this->isDirty( false );
 
 		return $this;
 	}
