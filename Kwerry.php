@@ -6,7 +6,6 @@
  * @version	.5
  */
 
-error_reporting( E_ALL );
 class FK {
 	private $_name;
 	private $_fktable;
