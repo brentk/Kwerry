@@ -62,7 +62,7 @@ Referenced (and referencing) tables are accessible via methods as well:
 $authors = Kwerry::model( "authors" );
 foreach( $authors as $author ) {
 	echo $author->name . "\n";
-	foreach( $author->getBooks()->sortTitle() as $book ) {
+	foreach( $author->books->sortTitle() as $book ) {
 		echo "\t" . $book->title . "\n";
 	}
 }
