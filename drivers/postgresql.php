@@ -276,6 +276,12 @@ class postgresql extends database {
 		}
 
 		$recordset = pg_fetch_all( $result );
+
+		//return an empty array instead of a false bool
+		if( $recordset === false ) {
+			return( array() );
+		}
+
 		return $recordset;
 	}
 
