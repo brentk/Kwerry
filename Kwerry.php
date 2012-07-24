@@ -413,6 +413,22 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
+	 * Runs straight SQL and returns the raw result (usually a recordset
+	 * in the form of an assoc array).
+	 *
+	 * @param	string		SQL statement
+	 * @param	string		Parameters for parameterized SQL statement
+	 * @param	string		Connection to use (defaults to "default")
+	 * @return	variant		Driver's result of the given sql statement
+	 */
+	public static function runSQL ( $sql, Array $params = NULL, $connectionName = "default" ) {
+		if( is_null( $params ) ) {
+			$params = array();
+		}
+		return Kwerry::$_connections[ $connectionName ]->runSQL( $sql, $params );
+	}
+
+	/**
 	 * Returns a column's value at the current cursor in the 
 	 * recordset.  Will execute (or re-execute) the object's 
 	 * query if needed.
