@@ -412,6 +412,36 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
+	 * Static. Instructs the driver to start a transaction.
+	 *
+	 * @return	NULL
+	 */
+	public static function begin( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->begin();
+	}
+
+	/**
+	 * Static. Instructs the driver to commit the current transaction.
+	 *
+	 * @return	NULL
+	 */
+	public static function commit( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->commit();
+	}
+
+	/**
+	 * Static. Instructs the driver to rollback the current transaction.
+	 *
+	 * @return	NULL
+	 */
+	public static function rollback( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->rollback();
+	}
+
+	/**
 	 * Static. Runs straight SQL and returns the raw result (usually a recordset
 	 * in the form of an assoc array).
 	 *
