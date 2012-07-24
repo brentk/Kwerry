@@ -360,6 +360,14 @@ class postgresql extends database {
 		return true;
 	}
 
-
+	function begin() {
+		pg_query( $this->_connection, "BEGIN" );
+	}
+	function commit() {
+		pg_query( $this->_connection, "COMMIT" );
+	}
+	function rollback() {
+		pg_query( $this->_connection, "ROLLBACK" );
+	}
 }
 

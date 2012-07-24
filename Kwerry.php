@@ -204,13 +204,13 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return $kwerry;
 	}
 
-	function createConnection() {
+	protected static function createConnection( $connectionName ) {
 
-		if( array_key_exists( $this->_connectionName, Kwerry::$_connections ) ) {
+		if( array_key_exists( $connectionName, Kwerry::$_connections ) ) {
 			return;
 		}
 
-		$databaseDriver = Kwerry::$_connectionDetails[ $this->_connectionName ]->driver;
+		$databaseDriver = Kwerry::$_connectionDetails[ $connectionName ]->driver;
 
 		//Attempt to include the driver file
 		if( ! file_exists( dirname(__FILE__)."/drivers/{$databaseDriver}.php" ) ) {
@@ -223,22 +223,23 @@ class Kwerry implements arrayaccess, iterator, countable {
 			throw new Exception( "Unable to find database driver class named \"{$databaseDriver}\"." );
 		}
 
-		$host		= Kwerry::$_connectionDetails[ $this->_connectionName ]->host;
-		$port		= Kwerry::$_connectionDetails[ $this->_connectionName ]->port;
-		$dbname		= Kwerry::$_connectionDetails[ $this->_connectionName ]->dbname;
-		$username	= Kwerry::$_connectionDetails[ $this->_connectionName ]->username;
-		$password	= Kwerry::$_connectionDetails[ $this->_connectionName ]->password;
+		$host		= Kwerry::$_connectionDetails[ $connectionName ]->host;
+		$port		= Kwerry::$_connectionDetails[ $connectionName ]->port;
+		$dbname		= Kwerry::$_connectionDetails[ $connectionName ]->dbname;
+		$username	= Kwerry::$_connectionDetails[ $connectionName ]->username;
+		$password	= Kwerry::$_connectionDetails[ $connectionName ]->password;
 
-		Kwerry::$_connections[ $this->_connectionName ] = new $databaseDriver();
-		Kwerry::$_connections[ $this->_connectionName ]->setHost(	$host );
-		Kwerry::$_connections[ $this->_connectionName ]->setPort(	$port );
-		Kwerry::$_connections[ $this->_connectionName ]->setDBName(	$dbname );
-		Kwerry::$_connections[ $this->_connectionName ]->setUsername(	$username );
-		Kwerry::$_connections[ $this->_connectionName ]->setPassword(	$password );
-		Kwerry::$_connections[ $this->_connectionName ]->connect();
+		Kwerry::$_connections[ $connectionName ] = new $databaseDriver();
+		Kwerry::$_connections[ $connectionName ]->setHost(	$host );
+		Kwerry::$_connections[ $connectionName ]->setPort(	$port );
+		Kwerry::$_connections[ $connectionName ]->setDBName(	$dbname );
+		Kwerry::$_connections[ $connectionName ]->setUsername(	$username );
+		Kwerry::$_connections[ $connectionName ]->setPassword(	$password );
+		Kwerry::$_connections[ $connectionName ]->connect();
 	}
 
 	function getConnection() {
+		self::createConnection( $this->_connectionName );
 		return Kwerry::$_connections[ $this->_connectionName ];
 	}
 
@@ -262,7 +263,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	function __construct( $tableName, $connectionName ) {
 		$this->_connectionName = $connectionName;
-		$this->createConnection();
 		$this->buildDataModel( $tableName );
 		$this->_limit = null;
 		$this->_offset = null;
@@ -371,7 +371,6 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	NULL
 	 */
 	private function executeQuery() {
-
 		$recordset = $this->getConnection()->execute( $this );
 		
 		if( $recordset === false ) {
@@ -394,7 +393,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @param	string		SQL SELECT statement
 	 * @param	string		Parameters for parameterized SQL statement
 	 * @throws	Exception	Non-SELECT statement passed in
-	 * @return	string		Current Kwerry object
+	 * @return	object		Current Kwerry object
 	 */
 	public function hydrate( $sql, Array $params = NULL) {
 
@@ -413,7 +412,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Runs straight SQL and returns the raw result (usually a recordset
+	 * Static. Runs straight SQL and returns the raw result (usually a recordset
 	 * in the form of an assoc array).
 	 *
 	 * @param	string		SQL statement
@@ -425,6 +424,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		if( is_null( $params ) ) {
 			$params = array();
 		}
+		self::createConnection( $connectionName );
 		return Kwerry::$_connections[ $connectionName ]->runSQL( $sql, $params );
 	}
 
