@@ -1,9 +1,8 @@
 <?
 /**
  * Kwerry ORM. A small, introspection based PHP ORM.
- * 
+ *
  * @author	Brent Kelly <brenttkelly@gmail.com>
- * @version	.5
  */
 
 require_once( dirname( __FILE__ ) . "/Relationship.php" );
@@ -13,18 +12,59 @@ require_once( dirname( __FILE__ ) . "/Database.php" );
 
 class Kwerry implements arrayaccess, iterator, countable {
 
-	public $_tableName;
+	/**
+	 * @var		Kwerry\Table	Table object for the table that this model is representing.
+	 */
 	public $_table;
+
+	/**
+	 * @var		array		Array of column relationships that this model contains.
+	 */
 	public $_relationship = array();
+
+	/**
+	 * @var		boolean		Notifies the object if the user has added more criteria to the current model's query.
+	 */
 	public $_isDirty;
+
+	/**
+	 * @var		array		Array containing all where clauses added to the current model's query.
+	 */
 	public $_where;
+
+	/**
+	 * @var		array		Array containing all sort (order by) clauses added.
+	 */
 	public $_order;
+
+	/**
+	 * @var		integer		Number of records to limit the current model's query to.
+	 */
 	public $_limit;
+
+	/**
+	 * @var		integer		Number of records to offset the current model's query by.
+	 */
 	public $_offset;
 
+	/**
+	 * @var		integer		Reflects where in the current model's recrodset the cursor is.
+	 */
 	private $_currentRow = 0;
+
+	/**
+	 * @var		array		Array containing the current model's recordset.
+	 */
 	private $_recordset = array();
+
+	/**
+	 * @var		array		Array containing all changes to make to current model (and write to the database) on ::save().
+	 */
 	private $_updateBuffer = array();
+
+	/**
+	 * @var		boolean		Notifies the object if the user is performing an insert with the current model.
+	 */
 	private $_isAddingNew = false;
 
 	/**
@@ -42,6 +82,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	public static $_connections = array();
 
+	/**
+	 * Adds connection information to the object's static array of
+	 * connection details (db type, username, password, etc).
+	 *
+	 * @param	string		[OPTIONAL] Connection name, defaults to "default"
+	 * @param	string		Setting name (e.g. "username", "password", etc).
+	 * @param	string		Setting value
+	 * @throws	Exception	Proper arguments were not passed into method.
+	 * @return	null
+	 */
 	public static function setConnection() {
 
 		$connectionName	= "";
@@ -70,6 +120,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 		Kwerry::$_connectionDetails[ $connectionName ]->$settingName = $settingValue;
 	}
 
+	/**
+	 * Clears the current state of the model except for which table
+	 * it is representing.
+	 *
+	 * @return	null
+	*/
 	public function clear() {
 		$this->_where		= NULL;
 		$this->_order		= NULL;
@@ -87,8 +143,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * Attmps to find a model on the path. If on is not found, attempts
 	 * to create a vanilla model by examining the database schema.
 	 *
-	 * @param	string	Name of requested table/model
-	 * @return	object	Model object
+	 * @param	string		Name of requested table/model
+	 * @return	Kwerry		Model object
 	 */
 	static function model( $tableName, $connectionName = "default" ) {
 
@@ -111,6 +167,15 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return $kwerry;
 	}
 
+	/**
+	 * Attempts to create the driver and instruct it to make a connection
+	 * with the available connection details.
+	 *
+	 * @param	string		Name of the connection to use.
+	 * @throws	Exception	No file found for specified driver.
+	 * @throws	Exception	No class found for specified driver.
+	 * @return	null
+	 */
 	protected static function createConnection( $connectionName ) {
 
 		if( array_key_exists( $connectionName, Kwerry::$_connections ) ) {
@@ -145,6 +210,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 		Kwerry::$_connections[ $connectionName ]->connect();
 	}
 
+	/**
+	 * Returns the current model's connection object.
+	 *
+	 * @return	Kwerry\Database		Current model's connection object.
+	 */
 	function getConnection() {
 		self::createConnection( $this->_connectionName );
 		return Kwerry::$_connections[ $this->_connectionName ];
@@ -152,11 +222,13 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 	/**
 	 * Uses the connection's database class's introspection to
-	 * create a model of the table's layout. If a defined class 
+	 * create a model of the table's layout. If a defined class
 	 * exists, it can override this to build the table by hand to
 	 * increase speed and flexibility.
 	 *
-	 * @return	NULL
+	 * @param	string		Name of table to instruction the driver to query
+	 * @throws	Exception	Primary key not found in requested table.
+	 * @return	null
 	 */
 	protected function buildDataModel( $tableName ) {
 		$table = new Kwerry\Table();
@@ -168,6 +240,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 	}
 
+	/**
+	 * Constructor.
+	 *
+	 * @param	string		Name of table to build model for
+	 * @param	string		Database connection to use.
+	 */
 	function __construct( $tableName, $connectionName ) {
 		$this->_connectionName = $connectionName;
 		$this->buildDataModel( $tableName );
@@ -177,12 +255,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * isDirty is used to let the object know whether or not 
+	 * isDirty is used to let the object know whether or not
 	 * the parameters of the query have changed. If so, we need to
 	 * execute or re-execute the query with the lastest query.
-	 * 
-	 * @param	bool	optional wheher object is dirty or not
-	 * @return	bool	state if object
+	 *
+	 * @param	bool		optional wheher object is dirty or not
+	 * @return	bool		state if object
 	 */
 	private function isDirty( $value = NULL ) {
 		if( ! is_null( $value ) ) {
@@ -195,8 +273,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * Build and cache relateed models. Return cached versions if
 	 * previously built.
 	 *
-	 * @param	string	name of table 
-	 * @return	object	requested model object
+	 * @param	string		name of table
+	 * @return	Kwerry		requested model object
 	 */
 	private function lazyLoad( $tableName, $their_column, $my_column ) {
 
@@ -214,11 +292,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Create an order by clause to add to the query and sets the 
-	 * object as dirty. 
+	 * Create an order by clause to add to the query and sets the
+	 * object as dirty.
 	 *
-	 * @param	string	Name of database field to sort by
-	 * @param	string	(optional) Type of sort (defaults to ascending)
+	 * @param	string		Name of database field to sort by
+	 * @param	string		(optional) Type of sort (defaults to ascending)
 	 * @return	null
 	 */
 	public function addSort( $name, $type = "ASC" ) {
@@ -233,13 +311,14 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Create a where clause to add to the query and sets the 
+	 * Create a where clause to add to the query and sets the
 	 * object as dirty. It also normalizes the arguments so that
 	 * the query processor doesn't need any more overhead.
 	 *
-	 * @param	string	Name of database field to filter by
-	 * @param	variant	value(s) to filter with (could be array of values)
-	 * @param	string	(optional) Operator to filter with (defaults to equals)
+	 * @param	string		Name of database field to filter by
+	 * @param	variant		value(s) to filter with (could be array of values)
+	 * @param	string		(optional) Operator to filter with (defaults to equals)
+	 * @throws	Exception	Unknown comparison operator passed in.
 	 * @return	null
 	 */
 	public function addWhere( $field, $value, $operator = "=" ) {
@@ -270,11 +349,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Actual execution of built queries.  Handles compiling all the 
+	 * Actual execution of built queries.  Handles compiling all the
 	 * where and sort properties and compiles it into an actual SQL query.
 	 * In the future this will need to be delegated to db specifiec functions
 	 * to handle the different nuances of each db's SQL implementation.
-	 * 
+	 *
 	 * @return	NULL
 	 */
 	private function executeQuery() {
@@ -300,7 +379,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @param	string		SQL SELECT statement
 	 * @param	string		Parameters for parameterized SQL statement
 	 * @throws	Exception	Non-SELECT statement passed in
-	 * @return	object		Current Kwerry object
+	 * @return	Kwerry		Current Kwerry object
 	 */
 	public function hydrate( $sql, Array $params = NULL) {
 
@@ -366,14 +445,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
-	 * Returns a column's value at the current cursor in the 
-	 * recordset.  Will execute (or re-execute) the object's 
+	 * Returns a column's value at the current cursor in the
+	 * recordset.  Will execute (or re-execute) the object's
 	 * query if needed.
 	 *
 	 * @param	string		Column name.
+	 * @throws	Exception	Attempting to access property in an empty recordset.
+	 * @throws	Exception	Attempting to access property at non-existant index in recordset.
 	 * @return	string		Column value at current cursor position.
 	 */
-	function getValue( $column ) {
+	protected function getValue( $column ) {
 		if( $this->isDirty() ) { $this->executeQuery(); }
 
 		if( count( $this->_recordset ) == 0 )
@@ -394,17 +475,47 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return( $this->getTable()->getColumns() );
 	}
 
-	public function setTable( $table ) { $this->_table = $table; }
+	/**
+	 * Sets the object that contains details about the table
+	 * that the current model represents.
+	 *
+	 * @param	Kwerry\Table	Object containing table information for current model's table.
+	 * @return	null
+	 */
+	public function setTable( $table ) {
+		$this->_table = $table;
+	}
+
+	/**
+	 * Returns the object that contains details about the table
+	 * that the current model represents.
+	 *
+	 * @return	Kwerry\Table	Object containing table information for current model's table.
+	 */
 	public function getTable() { return( $this->_table ); }
 
+	/**
+	 * When using the model in the a writable context (insert or update),
+	 * this is the magic function in which the new values will come in.
+	 *
+	 * @param	string		Name of column being written to.
+	 * @param	variant		Value of column being written.
+	 * @return	null
+	 */
 	public function __set( $name, $value ) {
-
 		if( $this->getTable()->hasColumn( $name ) ) {
 			$this->_updateBuffer[ $name ] = $value;
 		}
-
 	}
 
+	/**
+	 * Instructs the objec that the user is using the current
+	 * object in an "insert" context and expects to write
+	 * a new record to the database with this object's values.
+	 *
+	 * @param	boolean		Denotes that insert mode is on or not.
+	 * @return	null
+	 */
 	protected function isAddingNew( $value = NULL ) {
 		if( is_null( $value ) ) {
 			return( $this->_isAddingNew );
@@ -412,11 +523,23 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_isAddingNew = $value;
 	}
 
+	/**
+	 * Method user uses to instruct the object to enter "insert"
+	 * mode.
+	 *
+	 * @return	Kwerry		Current Kwerry object
+	 */
 	public function addnew() {
 		$this->isAddingNew( true );
 		return $this;
 	}
 
+	/**
+	 * Instructs the driver to write the buffered changes (or new values
+	 * in the case of ::addnew()) to the database.
+	 *
+	 * @return	null
+	 */
 	public function save() {
 		if( $this->isAddingNew() ) {
 			$key = $this->getConnection()->insert( $this->_updateBuffer, $this );
@@ -431,6 +554,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_updateBuffer = array();
 	}
 
+	/**
+	 * Instructs the driver to delete the record that the current
+	 * cursor points to in the internal recordset.
+	 *
+	 * @return	null
+	 */
 	public function delete() {
 		$this->getConnection()->delete( $this );
 		$this->clear();
@@ -441,6 +570,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * keyed tables, or referecing tables.
 	 *
 	 * @param	string		Property name.
+	 * @throws	Exception	Requested non-existant property (column or relationship).
 	 * @return	object		Reference to current, keyed, or referencing Kwerry object.
 	 */
 	public function __get( $name ) {
@@ -466,6 +596,9 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 *
 	 * @param	string		Name of method caller requested.
 	 * @param	array		Array of arguments caller supplied to method.
+	 * @throws	Exception	Issued where on non-existant column.
+	 * @throws	Exception	Issued sort on non-existant column.
+	 * @throws	Exception	Unknown method called.
 	 * @return	object		Will return this object
 	 */
 	function __call( $name, $argument ) {
@@ -539,11 +672,29 @@ class Kwerry implements arrayaccess, iterator, countable {
 		return $this;
 	}
 
-	//arrayaccess, iterator, and count methods 
+	//////////////////////////////////////////////////////
+	//ArrayAccess, ArrayIterator, and Count implementation
+
+	/**
+	 * Implementation of the index test for the ArrayAccess
+	 * interface that maps to model's internal recordset.
+	 *
+	 * @param	integer		Index to test for in the current recordset.
+	 * @return	boolean		Whether or not the internal recordset contains a record at the given index.
+	 */
 	public function offsetExists( $offset ) { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( isset( $this->_recordset[ $offset ] ) ); 
 	}
+
+	/**
+	 * Implementation of the index request for the ArrayAccess
+	 * interface that maps to model's internal recordset.
+	 *
+	 * @param	integer		Index in the internal recordset to pull.
+	 * @throws	Exception	Requested index does not exist in internal recordset.
+	 * @return	Kwerry		Object with the cursor in the internal recordset moved to the requested position
+	 */
 	public function offsetGet( $offset ) { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
 
@@ -554,26 +705,88 @@ class Kwerry implements arrayaccess, iterator, countable {
 		$this->_currentRow = $offset;
 		return $this;
 	}
+
+	/**
+	 * Implementation of writing at index for the ArrayAccess
+	 * interface. Kwerry handles its own writing via magic __set() call,
+	 * and there is currently no plan to implement writting an entire record
+	 * via the array access, so this exists just to throw an exception if
+	 * the user tries.
+	 *
+	 * @param	integer		ignored.
+	 * @param	variant		ignored.
+	 * @throws	Exception	Will always throw this exception stating that you cannot write to the objec this way.
+	 */
 	public function offsetSet( $offset, $value ) { 
 		throw new Exception( "You may not add records this way." ); 
 	}
+
+	/**
+	 * Implementation of removing a row for the ArrayAccess
+	 * interface. This could be mapped to the ::delete() method,
+	 * but that seems a bit goofy and hidden, so I'm just disabling
+	 * this implementation.
+	 *
+	 * @param	integer		ignored.
+	 * @throws	Exception	Will always throw this exception stating that you cannot use this.
+	 */
 	public function offsetUnset( $offset ) { 
 		throw new Exception( "You may not remove records this way." ); 
 	}
+
+	/**
+	 * Implementation of retrieving the current row for the ArrayIterator
+	 * interface. Leaves the internal recordset's cursor where it is and returns
+	 * the current object.
+	 *
+	 * @return	Kwerry		Current object with internal recordset cursor untouched
+	 */
 	public function current() {
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( $this );
 	}
+
+	/**
+	 * Implementation of retrieving the current key for the ArrayIterator
+	 * interface. Returns the value of the internal recordset's cursor position.
+	 *
+	 * @return	integer		Internal recordset cursor position
+	 */
 	public function key() {
 		return( $this->_currentRow );
 	}
+
+	/**
+	 * Implementation of advancing to the next index for the ArrayIterator
+	 * interface. Simply advances the current position of the internal recordset's
+	 * cursor.
+	 *
+	 * @return	null
+	 */
 	public function next() {
 		$this->_currentRow++;
 	}
+
+	/**
+	 * Implementation of returning to the first index for the ArrayIterator
+	 * interface. Simply set the current position of the internal recordset's
+	 * cursor to zero.
+	 *
+	 * @return	null
+	 */
 	public function rewind() {
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		$this->_currentRow = 0;
 	}
+
+	/**
+	 * Implementation of check for more indexes for the ArrayIterator
+	 * interface. After being advanced by one, checks to see of the
+	 * internal recordset contains a record at the current position.
+	 * If not it rolls it back by 1 to a valid record.
+	 *
+	 * @return	boolean		Whether or not the internal recordset's cursor landed beyond the range of existing indexes.
+	 */
 	public function valid() {
 		if( ! isset( $this->_recordset[ $this->_currentRow ] ) ) {
 			$this->_currentRow--;
@@ -581,6 +794,13 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 		return( true );
 	}
+
+	/**
+	 * Implementation of Countable interface. Simply counts
+	 * how many records are in the internal recordset.
+	 *
+	 * @return	integer		Number of records in the internal recordset
+	 */
 	public function count() { 
 		if( $this->isDirty() ) { $this->executeQuery(); }
 		return( count( $this->_recordset ) ); 
