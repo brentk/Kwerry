@@ -1,5 +1,5 @@
 <?
-class postgresql extends database {
+class postgresql extends Kwerry\Database {
 
 	private $_connection;
 	public $_prepared_statement = array();
@@ -70,7 +70,7 @@ class postgresql extends database {
 
 	}
 
-	private function populateColumns( &$obTable ) {
+	private function populateColumns( &$table ) {
 
 		$sql = "SELECT pg_attribute.attnum, pg_attribute.attname AS field, pg_type.typname AS type, 
 				pg_attribute.attlen AS length, pg_attribute.atttypmod AS lengthvar, 
@@ -90,26 +90,26 @@ class postgresql extends database {
 			ORDER BY pg_attribute.attnum";
 
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
-		$aryColumns = pg_fetch_all( $result );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $table->getName() ) );
+		$columns = pg_fetch_all( $result );
 
-		if( $aryColumns === false ) {
-			throw new Exception( "Unable to find table ".$obTable->getName()."\n\n" );
+		if( $columns === false ) {
+			throw new Exception( "Unable to find table ".$table->getName()."\n\n" );
 		}
 
-		foreach( $aryColumns as $record ) {
-			$column = new Column();
+		foreach( $columns as $record ) {
+			$column = new Kwerry\Column();
 			$column->setName( $record[ "field" ] );
 			$column->setDataType( $this->getDataType( $record[ "type" ] ) );
-			$obTable->addColumn( $column );
+			$table->addColumn( $column );
 
 			if( $record[ "primary_key" ] ) {
-				$obTable->setPK( $record[ "field" ] );
+				$table->setPrimaryKey( $record[ "field" ] );
 			}
 		}
 	}
 	
-	public function populateFK( &$obTable) {
+	public function populateForeignKeys( &$table ) {
 
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
@@ -132,22 +132,22 @@ class postgresql extends database {
 			AND a1.attnum = ct.confkey[1]
 			ORDER BY conname"; 
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
-		$aryFK = pg_fetch_all( $result );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $table->getName() ) );
+		$foreignKeys = pg_fetch_all( $result );
 
-		if( $aryFK !== false ) {
-			foreach( $aryFK as $fk ) {
-				$obFK = new FK();
-				$obFK->setName( $fk[ "fkcol" ] );
-				$obFK->setFKTable( $fk[ "reftab" ] );
-				$obFK->setFKName( $fk[ "refcol" ] );
-				$obTable->addFK( $obFK );
+		if( $foreignKeys !== false ) {
+			foreach( $foreignKeys as $record ) {
+				$foreignKey = new Kwerry\Relationship();
+				$foreignKey->setLocalColumn( $record[ "fkcol" ] );
+				$foreignKey->setForeignTable( $record[ "reftab" ] );
+				$foreignKey->setForeignColumn( $record[ "refcol" ] );
+				$table->addRelationship( $foreignKey );
 			}
 		}
 
 	}
 
-	public function populateRef( &$obTable) {
+	public function populateReferencedColumns( &$table ) {
 
 		//Lifted verbatim from propel
 		$sql = "SELECT conname, confupdtype, confdeltype, 
@@ -170,23 +170,23 @@ class postgresql extends database {
 			AND a1.attnum = ct.confkey[1]
 			ORDER BY conname"; 
 
-		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $obTable->getName() ) );
-		$aryRef = pg_fetch_all( $result );
-		if( $aryRef !== false ) {
-			foreach( $aryRef as $ref ) {
-				$obRef = new Ref();
-				$obRef->setName( $ref[ "refcol" ] );
-				$obRef->setRefTable( $ref[ "fktab" ] );
-				$obRef->setRefName( $ref[ "fkcol" ] );
-				$obTable->addRef( $obRef );
+		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), array( $table->getName() ) );
+		$references = pg_fetch_all( $result );
+		if( $references !== false ) {
+			foreach( $references as $reference ) {
+				$referencedColumn = new Kwerry\Relationship();
+				$referencedColumn->setLocalColumn( $reference[ "refcol" ] );
+				$referencedColumn->setForeignTable( $reference[ "fktab" ] );
+				$referencedColumn->setForeignColumn( $reference[ "fkcol" ] );
+				$table->addRelationship( $referencedColumn );
 			}
 		}
 	}
 
-	public function introspection( &$obTable) {
-		$this->populateColumns( $obTable );
-		$this->populateFK( $obTable );
-		$this->populateRef( $obTable );
+	public function introspection( &$table) {
+		$this->populateColumns( $table );
+		$this->populateForeignKeys( $table );
+		$this->populateReferencedColumns( $table );
 	}
 
 	protected function buildWhere( &$kwerry, Array &$params ) {

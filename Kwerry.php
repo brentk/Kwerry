@@ -6,103 +6,10 @@
  * @version	.5
  */
 
-class FK {
-	private $_name;
-	private $_fktable;
-	private $_fkname;
-	public function getName() { return $this->_name; }
-	public function setName( $name ) { $this->_name = $name; }
-	public function getFKTable() { return $this->_fktable; }
-	public function setFKTable( $fktable ) { $this->_fktable = $fktable; }
-	public function getFKName() { return $this->_fkname; }
-	public function setFKName( $fkname ) { $this->_fkname = $fkname; }
-}
-
-class Ref {
-	private $_name;
-	private $_reftable;
-	private $_refname;
-	public function getName() { return $this->_name; }
-	public function setName( $name ) { $this->_name = $name; }
-	public function getRefTable() { return $this->_reftable; }
-	public function setRefTable( $reftable ) { $this->_reftable = $reftable; }
-	public function getRefName() { return $this->_refname; }
-	public function setRefName( $refname ) { $this->_refname = $refname; }
-}
-
-define( "DATA_TYPE_INTEGER",	0 );
-define( "DATA_TYPE_STRING",	1 );
-define( "DATA_TYPE_DATE",	2 );
-define( "DATA_TYPE_TIME",	3 );
-define( "DATA_TYPE_STAMP",	4 );
-define( "DATA_TYPE_BOOL",	5 );
-define( "DATA_TYPE_NUMERIC",	6 );
-define( "DATA_TYPE_BLOB",	7 );
-
-class Column {
-	private $_name;
-	private $_datatype;
-	public function getName() { return $this->_name; }
-	public function setName( $name ) { $this->_name = $name; }
-	public function getDataType() { return $this->_datatype; }
-	public function setDataType( $datatype ) { $this->_datatype = $datatype; }
-}
-
-class Table {
-	private $_name;
-	private $_pk;
-	private $_column = array();
-	private $_fk = array();
-	private $_ref = array();
-
-	public function getName() { return $this->_name; }
-	public function setName( $name ) { $this->_name = $name; }
-	public function getPK() { return $this->_pk; }
-	public function setPK( $pk ) { $this->_pk = $pk; }
-	public function addColumn( $column ) { $this->_column[] = $column; }
-	public function getColumns() { return( $this->_column ); }
-	public function addFK( $fk ) { $this->_fk[] = $fk; }
-	public function getFKs() { return( $this->_fk ); }
-	public function addRef( $ref ) { $this->_ref[] = $ref; }
-	public function getRefs() { return( $this->_ref ); }
-
-	public function hasColumn( $name ) {
-		foreach( $this->getColumns() as $column ) {
-			if ( $column->getName() == $name ) {
-				return true;
-			}
-		}
-		return false;
-	}
-}
-
-class database {
-	private $_host;
-	private $_port;
-	private $_dbname;
-	private $_username;
-	private $_password;
-	public function setHost( $value ) { $this->_host = $value; }
-	public function getHost() { return( $this->_host ); }
-	public function setPort( $value ) { $this->_port = $value; }
-	public function getPort() { return( $this->_port ); }
-	public function setDBName( $value ) { $this->_dbname = $value; }
-	public function getDBName() { return( $this->_dbname ); }
-	public function setUsername( $value ) { $this->_username = $value; }
-	public function getUsername() { return( $this->_username ); }
-	public function setPassword( $value ) { $this->_password = $value; }
-	public function getPassword() { return( $this->_password ); }
-
-	public function connect() {
-		throw new Exception( get_called_class()."::connect not implemented!" );
-	}
-	public function introspection() {
-		throw new Exception( get_called_class()."::introspection not implemented!" );
-	}
-	public function execute() {
-		throw new Exception( get_called_class()."::execute not implemented!" );
-	}
-}
+require_once( dirname( __FILE__ ) . "/Relationship.php" );
+require_once( dirname( __FILE__ ) . "/Column.php" );
+require_once( dirname( __FILE__ ) . "/Table.php" );
+require_once( dirname( __FILE__ ) . "/Database.php" );
 
 class Kwerry implements arrayaccess, iterator, countable {
 
@@ -252,11 +159,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	NULL
 	 */
 	protected function buildDataModel( $tableName ) {
-		$obTable = new Table();
-		$obTable->setName( $tableName );
-		$this->setTable( $obTable );
+		$table = new Kwerry\Table();
+		$table->setName( $tableName );
+		$this->setTable( $table );
 		$this->getConnection()->introspection( $this->getTable() );
-		if( ! $this->getTable()->getPK() ) {
+		if( ! $this->getTable()->getPrimaryKey() ) {
 			throw new Exception( "No primary key found in \"".$this->getTable()->getName()."\"." );
 		}
 	}
@@ -543,19 +450,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 			return $this->getValue( $name );
 		}
 
-		//See if they're requesting a foreign keyed table
-		foreach( $this->getTable()->getFKs() as $obFK ) {
-			if( $obFK->getFKTable() == $name ) {
-				$fkTable = $this->lazyLoad( $name, $obFK->getFKName(), $obFK->getName() );
-				return( $fkTable );
-			}
-		}
-
-		//See if they're requesting a referencing table
-		foreach( $this->getTable()->getRefs() as $obRef ) {
-			if( $obRef->getRefTable() == $name ) {
-				$refTable = $this->lazyLoad( $name, $obRef->getRefName(), $obRef->getName() );
-				return( $refTable );
+		//See if they're requesting a related table
+		foreach( $this->getTable()->getRelationships() as $relationship ) {
+			if( $relationship->getForeignTable() == $name ) {
+				$foreignTable = $this->lazyLoad( $name, $relationship->getForeignColumn(), $relationship->getLocalColumn() );
+				return( $foreignTable );
 			}
 		}
 
@@ -570,7 +469,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return	object		Will return this object
 	 */
 	function __call( $name, $argument ) {
-		
+
+		//User is specifying a "WHERE"
 		if( strtolower( substr( $name, 0, 5 ) ) == "where" ) {
 
 			//Extrac the subject being requested for 
@@ -593,6 +493,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			throw new Exception( "Unable to find column \"$subject\" for where." );
 		}
 
+		//User is specifying an "ORDER BY"
 		if( strtolower( substr( $name, 0, 4 ) ) == "sort" ) {
 
 			//Extrac the subject being requested for 
