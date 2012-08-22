@@ -543,7 +543,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	public function save() {
 		if( $this->isAddingNew() ) {
 			$key = $this->getConnection()->insert( $this->_updateBuffer, $this );
-			$method = "where" . $this->getTable()->getPK();
+			$method = "where" . $this->getTable()->getPrimaryKey();
 			$this->$method( $key );
 			$this->isAddingNew( false );
 		} else {
