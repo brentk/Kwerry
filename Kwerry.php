@@ -445,6 +445,36 @@ class Kwerry implements arrayaccess, iterator, countable {
 	}
 
 	/**
+	 * Static. Retrieves the database specific random call
+	 *
+	 * @return	string
+	 */
+	public static function random( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->getRandom();
+	}
+
+	/**
+	 * Static. Retrieves the database specific true value
+	 *
+	 * @return	string
+	 */
+	public static function true( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->getTrue();
+	}
+
+	/**
+	 * Static. Retrieves the database specific false value
+	 *
+	 * @return	string
+	 */
+	public static function false( $connectionName = "default" ) {
+		self::createConnection( $connectionName );
+		return Kwerry::$_connections[ $connectionName ]->getFalse();
+	}
+
+	/**
 	 * Returns a column's value at the current cursor in the
 	 * recordset.  Will execute (or re-execute) the object's
 	 * query if needed.

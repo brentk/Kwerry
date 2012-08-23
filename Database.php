@@ -7,6 +7,9 @@ class Database {
 	private $_dbname	= null;
 	private $_username	= null;
 	private $_password	= null;
+	private $_random	= null;
+	private $_true		= null;
+	private $_false		= null;
 
 	public function setHost( $value ) {
 		$this->_host = $value;
@@ -38,6 +41,31 @@ class Database {
 	public function getPassword() {
 		return $this->_password;
 	}
+	public function setRandom( $value ) {
+		$this->_random = $value;
+	}
+	public function getRandom() {
+		if( is_null( $this->_random ) )
+			throw new \Exception( "Random function not defined in ".get_called_class());
+		return $this->_random;
+	}
+	public function setTrue( $value ) {
+		$this->_true = $value;
+	}
+	public function getTrue() {
+		if( is_null( $this->_random ) )
+			throw new \Exception( "True value not defined in ".get_called_class());
+		return $this->_true;
+	}
+	public function setFalse( $value ) {
+		$this->_false = $value;
+	}
+	public function getFalse() {
+		if( is_null( $this->_random ) )
+			throw new \Exception( "False value not defined in ".get_called_class());
+		return $this->_false;
+	}
+
 	public function connect() {
 		throw new \Exception( get_called_class()."::connect not implemented!" );
 	}
