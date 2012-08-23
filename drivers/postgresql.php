@@ -8,6 +8,9 @@ class postgresql extends Kwerry\Database {
 		if( ! function_exists( "pg_connect" ) ) {
 			throw new Exception( "PostgreSQL PHP support not installed." );
 		}
+		$this->setRandom( "random()" );
+		$this->setTrue( "t" );
+		$this->setFalse( "f" );
 	}
 
 	public function connect() {
@@ -16,7 +19,7 @@ class postgresql extends Kwerry\Database {
 		$connectionString .= " port=".$this->getPort();
 		$connectionString .= " dbname=".$this->getDBName();
 		$connectionString .= " user=".$this->getUsername();
-		$connectionString .= " password=".$this->getPassword();
+		$connectionString .= " password=".str_replace( " ", "\\ ", $this->getPassword() );
 		$this->_connection = pg_connect( $connectionString );
 	}
 
