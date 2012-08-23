@@ -53,7 +53,7 @@ class Database {
 		$this->_true = $value;
 	}
 	public function getTrue() {
-		if( is_null( $this->_random ) )
+		if( is_null( $this->_true ) )
 			throw new \Exception( "True value not defined in ".get_called_class());
 		return $this->_true;
 	}
@@ -61,7 +61,7 @@ class Database {
 		$this->_false = $value;
 	}
 	public function getFalse() {
-		if( is_null( $this->_random ) )
+		if( is_null( $this->_false ) )
 			throw new \Exception( "False value not defined in ".get_called_class());
 		return $this->_false;
 	}
