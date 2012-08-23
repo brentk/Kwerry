@@ -22,6 +22,14 @@ class Table {
 	public function addColumn( $column ) {
 		$this->_columns[] = $column;
 	}
+	public function getColumn( $name ) {
+		foreach( $this->getColumns() as $column ) {
+			if ( $column->getName() == $name ) {
+				return $column;
+			}
+		}
+		throw new \Exception( "No column named \"$name\" found in table \"".$this->getName()."\"" );
+	}
 	public function getColumns() {
 		return( $this->_columns );
 	}
