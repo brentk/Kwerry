@@ -493,6 +493,15 @@ class Kwerry implements arrayaccess, iterator, countable {
 		if( ! array_key_exists( $this->_currentRow, $this->_recordset ) )
 			throw new Exception( "Attempting to access property \"{$column}\" at unkown recordset offset \"{$this->_currentRow}\"." );
 
+		//If it's an actual boolean field, return the cooresponding php boolean value
+		if( $this->getTable()->getColumn( $column )->getDataType() == DATA_TYPE_BOOL ) {
+			if( $this->_recordset[ $this->_currentRow ][ $column ] == Kwerry::true() ) {
+				return true;
+			} else if( $this->_recordset[ $this->_currentRow ][ $column ] == Kwerry::false() ) {
+				return false;
+			}
+		}
+
 		return( $this->_recordset[ $this->_currentRow ][ $column ] );
 	}
 
