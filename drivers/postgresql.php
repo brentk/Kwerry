@@ -23,8 +23,9 @@ class postgresql extends Kwerry\Database {
 		$this->_connection = pg_connect( $connectionString );
 	}
 
-	/** Hashes and prepares sql queries. Searches for hash and returns already
-	 * prepared statement if applicable.
+	/**
+	 * Prepares and caches sql statements and returns the prepared statement's name.
+	 * Will return the already prepared statement's name if subsequently called.
 	 * 
 	 * @param	string		SQL Statement to prepare/return
 	 * @return	string		Prepared statement's name
@@ -42,7 +43,9 @@ class postgresql extends Kwerry\Database {
 	private function getDataType( $type ) {
 
 		switch( $type ) {
+			case( "int2" ):
 			case( "int4" ):
+			case( "int8" ):
 				return constant( "DATA_TYPE_INTEGER" );
 				break;
 			case( "text" ):
@@ -270,7 +273,36 @@ class postgresql extends Kwerry\Database {
 		return array( $sql, $params );
 	}
 
+	/**
+	 * Kwerry allows ODBC style parameter placeholders (?) across database
+	 * backends.  This function converts them to postgresql style placeholders.
+	 *
+	 * @param	string		SQL statement to process.
+	 * @return	string		Processed SQL statement with postgresql style placeholders
+	 */
+	protected function convertPlaceholders( $sql ) {
+		if( strstr( $sql, "?" ) === false ) {
+			return $sql;
+		}
+
+		$return = "";
+
+		$count = 0;
+		foreach( explode( "?", $sql ) as $token ) {
+			if( $count == 0 ) {
+				$return .= $token;
+			} else {
+				$return .= "$" . $count . $token;
+			}
+			$count++;
+		}
+		return $return;
+	}
+
+
 	public function runSQL( $sql, $params ) {
+
+		$sql = $this->convertPlaceholders( $sql );
 
 		$result = pg_execute( $this->_connection, $this->getQuery( $sql ), $params );
 
