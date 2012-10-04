@@ -327,7 +327,7 @@ class postgresql extends Kwerry\Database {
 
 	function update( $columns, Kwerry $parent ) {
 
-		$pkName = $parent->getTable()->getPK();
+		$pkName = $parent->getTable()->getPrimaryKey();
 		$pkValue = (string)$parent->$pkName;
 
 		$comma = " SET ";
@@ -379,7 +379,7 @@ class postgresql extends Kwerry\Database {
 
 	function delete( Kwerry $parent ) {
 
-		$pkName = $parent->getTable()->getPK();
+		$pkName = $parent->getTable()->getPrimaryKey();
 		$pkValue = (string)$parent->$pkName;
 
 		$comma = " SET ";
