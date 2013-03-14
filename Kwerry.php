@@ -6,10 +6,10 @@
  * @package  Kwerry
  */
 
-require_once( dirname( __FILE__ ) . "/Relationship.php" );
-require_once( dirname( __FILE__ ) . "/Column.php" );
-require_once( dirname( __FILE__ ) . "/Table.php" );
-require_once( dirname( __FILE__ ) . "/Database.php" );
+require_once( dirname( __FILE__ ) . "/library/Relationship.php" );
+require_once( dirname( __FILE__ ) . "/library/Column.php" );
+require_once( dirname( __FILE__ ) . "/library/Table.php" );
+require_once( dirname( __FILE__ ) . "/library/Database.php" );
 
 class Kwerry implements arrayaccess, iterator, countable {
 
