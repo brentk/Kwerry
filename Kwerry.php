@@ -1,8 +1,9 @@
 <?
 /**
- * Kwerry ORM. A small, introspection based PHP ORM.
+ * Kwerry. A small, introspection based PHP ORM.
  *
- * @author	Brent Kelly <brenttkelly@gmail.com>
+ * @author   Brent Kelly <brenttkelly@gmail.com>
+ * @package  Kwerry
  */
 
 require_once( dirname( __FILE__ ) . "/Relationship.php" );
@@ -182,7 +183,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 			return;
 		}
 
-		$databaseDriver = Kwerry::$_connectionDetails[ $connectionName ]->driver;
+		$databaseDriver = strtolower( Kwerry::$_connectionDetails[ $connectionName ]->driver );
 
 		//Attempt to include the driver file
 		if( ! file_exists( dirname(__FILE__)."/drivers/{$databaseDriver}.php" ) ) {
@@ -190,6 +191,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 		}
 
 		require_once( dirname(__FILE__)."/drivers/{$databaseDriver}.php" );
+
+		$databaseDriver = "Kwerry\\".$databaseDriver;
 
 		if( ! class_exists( $databaseDriver ) ) {
 			throw new Exception( "Unable to find database driver class named \"{$databaseDriver}\"." );
