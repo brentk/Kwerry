@@ -6,7 +6,7 @@ Small introspection based ORM for PHP
 Description
 -----------
 
-I decided to write Kwerry to see if I could pare down the ORM concept to a simple, light-weight wrapper class that could intelligently build itself based on the only the tablename.
+Kwerry is a pared down, light-weight ORM that can intelligently build itself based only on the tablename.
 
 Creating a Connection
 ---------------------
