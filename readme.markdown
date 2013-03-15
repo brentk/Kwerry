@@ -158,32 +158,25 @@ foreach( $authors->whereName( "John Smith" )->sortName()->limit( 2 )->offset( 5 
 Data Manipulation
 -----------------
 
-Update, insert, and delete are also available:
+Update, insert, and delete are also available, and are implemented via a pattern closely resembling active record:
 
 ```php
 //Insert a new book:
-$books = Kwerry( "books" );
-
-$insert = array();
-$insert[ "title" ]         = "The Very Hungry Caterpillar";
-$insert[ "author_id" ]     = Kwerry::model( "author" )->whereName( "Eric Carle" )->id;
-$insert[ "yearpublished" ] = 1970;
-$insert[ "pages" ]         = 25;
-
-$book_id = $books->insert( $insert );
+$book = Kwerry( "books" )->addnew;
+$book->title         = "The Very Hungry Caterpillar";
+$book->author_id     = Kwerry::model( "author" )->whereName( "Eric Carle" )->id;
+$book->yearpublished = 1970;
+$book->pages         = 25;
+$id = $book->save();
 
 //Update the record with some corrected data:
-$book = Kwerry( "books" )->whereID( $book_id );
-
-$update = array();
-$update[ "yearpublished" ] = 1969;
-$update[ "pages" ]         = 22;
-
-$book->update( $update );
+$book->yearpublished = 1969;
+$book->pages         = 22;
+$book->save();
 
 //Delete the book
-$book = Kwerry( "books" )->whereID( $book_id );
-$book->delete();
+$badBook = Kwerry( "books" )->whereID( $id );
+$badBook->delete();
 ```
 
 Object Hydration
