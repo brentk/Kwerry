@@ -541,7 +541,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * this is the magic function in which the new values will come in.
 	 *
 	 * @param   string   Name of column being written to.
-	 * @param   variant  Value of column being written.
+	 * @param   mixed    Value of column being written.
 	 * @return  null
 	 */
 	public function __set( $name, $value ) {
@@ -584,16 +584,22 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	public function save() {
 		if( $this->isAddingNew() ) {
+			//Insert record
 			$key = $this->getConnection()->insert( $this->_updateBuffer, $this );
+
+			//remove all state from this object (including isAddingNew)
+			$this->clear();
+
+			//Pull just this new record
 			$method = "where" . $this->getTable()->getPrimaryKey();
 			$this->$method( $key );
-			$this->isAddingNew( false );
 		} else {
-			$values = $this->getConnection()->update( $this->_updateBuffer, $this );
-			$this->_recordset[ $this->_currentRow ] = $values[0];
+			$updatedRecord = $this->getConnection()->update( $this->_updateBuffer, $this );
+			$this->_recordset[ $this->_currentRow ] = $updatedRecord[0];
 		}
 
 		$this->_updateBuffer = array();
+		return $this;
 	}
 
 	/**
