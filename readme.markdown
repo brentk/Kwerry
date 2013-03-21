@@ -6,7 +6,7 @@ Small introspection based ORM for PHP
 Description
 -----------
 
-Kwerry is a pared down, light-weight ORM that can intelligently build itself based only on the tablename.
+Kwerry is a pared down, light-weight ORM that can intelligently build itself based only on the tablename.  This is accomplished by reading database meta data to discover data types and primary keys and reading foreign key constraints to build inter-table relationships.
 
 Creating a Connection
 ---------------------
@@ -32,7 +32,7 @@ $books = Kwerry::model( "books" );
 ```
 and Kwerry does the rest by examining the table and building the object to reflect it.
 
-At this point the object model is fully built and represents all records in the book table. All columns are properties of the object and the model object itself implements ArrayAccess, Iterator, and Countable:
+At this point the object model is fully built and represents all records in the book table. All columns are properties of the object and the model object itself can also be treated as a simple array:
 
 ```php
 //Display the number of book records:
@@ -42,7 +42,12 @@ echo count( $books ) . " books found:\n";
 foreach( $books as $book ) {
 	echo $book->title . "\n";
 }
+
+//output a specific record's title:
+echo $books[52]->title . "\n";
 ```
+
+
 
 Filtering Results
 -----------------
@@ -65,7 +70,7 @@ foreach( $books->whereYearPublished( 1994, ">=" ) as $book ) {
 }
 ```
 
-You can continue to filter by the same object:
+You can continue to add filters to the same object:
 
 ```php
 $books = Kwerry::model( "books" );
@@ -89,26 +94,22 @@ $books = Kwerry::model( "books" );
 $myBooks = $books->whereYearPublished( 2011 )->whereTitle( "%PHP%", "LIKE" );
 ```
 
+There where methods are case insensitive and camel case is only used here to increase readability.
+
+\*\*Please note that currently the records must match **all** where criteria. Specifying OR, as well as nesting filters in parenthesis is being looked into.
 
 Sorting Records
 ---------------
 
-The sorting methods work a lot like the where methods and defaults to ascending unless specified:
+The sorting methods work a lot like the where methods. They being with the word "sort" followed by a column name. Just like where, multiple can be added and they can be chained.
+
+All sorting defaults to ascending unless specified with the "DESC" argument.
 
 ```php
 $books = Kwerry::model( "books" );
 
 //Get all books published after 1990, sorted ascending by year, descending by title:
 $myBooks = $books->whereYearPublished( 1990, ">=" )->sortYearPublished()->sortTitle( "DESC" );
-```
-
-You can also supply more arguments to have more fine grained control:
-
-```php
-//Print the title of all books published before or on 1990, sorted in reverse by Title:`
-foreach( $books->whereYearPublished( 1990, "<=" )->sortTitle( "DESC" ) as $book ) {
-	echo $book->title . "\n";
-}
 ```
 
 Foreign Keys and Table Relationships
@@ -162,12 +163,12 @@ Update, insert, and delete are also available, and are implemented via a pattern
 
 ```php
 //Insert a new book:
-$book = Kwerry( "books" )->addnew;
+$book = Kwerry::model( "books" )->addnew;
 $book->title         = "The Very Hungry Caterpillar";
 $book->author_id     = Kwerry::model( "author" )->whereName( "Eric Carle" )->id;
 $book->yearpublished = 1970;
 $book->pages         = 25;
-$id = $book->save();
+$book->save();
 
 //Update the record with some corrected data:
 $book->yearpublished = 1969;
@@ -175,9 +176,10 @@ $book->pages         = 22;
 $book->save();
 
 //Delete the book
-$badBook = Kwerry( "books" )->whereID( $id );
+$badBook = Kwerry::model( "books" )->whereID( $id );
 $badBook->delete();
 ```
+\*\*Note: Update and delete only operate on the current record. If your object currently has filtered set of data (or all recordsm, unfiltered) you will need to iterate through them, updating or deleting as you go.  Adding methods of executing these operations on all data in the object are currently being looked into.
 
 Object Hydration
 ----------------
@@ -192,13 +194,13 @@ $sql = "SELECT books.*
 	WHERE lower( authors.name ) LIKE ?
 	AND (authors.dob - books.yearpublished) < ?";
 
-$books = Kwerry::( "books" )->hydrate( $sql, array( "%john%", 30 ) );
+$books = Kwerry::model( "books" )->hydrate( $sql, array( "%john%", 30 ) );
 
 foreach( $books as $book ) {
 	echo $book->title . "\n";
 }
 ```
-This will also allow you to use database-specific syntax and functions if required.
+The only requirement when using hydrate() is you must return **all** columns from **only** the specified table.
 
 SQL Passthrough
 ---------------
