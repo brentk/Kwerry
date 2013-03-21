@@ -33,8 +33,6 @@ class Postgresql extends Database {
 	 */
 	public function __construct() {
 
-		set_error_handler( array( $this, "errorHandler" ) );
-
 		if( ! function_exists( "pg_connect" ) ) {
 			throw new Exception( "PostgreSQL PHP support not installed." );
 		}
@@ -50,6 +48,9 @@ class Postgresql extends Database {
 	 * @return null
 	 */
 	public function connect() {
+
+		set_error_handler( array( $this, "errorHandler" ) );
+
 		$connectionString = "";
 		$connectionString .= " host=".$this->getHost();
 		$connectionString .= " port=".$this->getPort();
@@ -57,6 +58,8 @@ class Postgresql extends Database {
 		$connectionString .= " user=".$this->getUsername();
 		$connectionString .= " password=".str_replace( " ", "\\ ", $this->getPassword() );
 		$this->_connection = pg_connect( $connectionString );
+
+		restore_error_handler();
 	}
 
 	/**
