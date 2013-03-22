@@ -12,6 +12,8 @@ namespace Kwerry;
 class Mysql extends Database {
 
 	protected $_connection;
+	protected $_sql_strings;
+	protected $_statements;
 
 	/**
 	 * Object constructor.
@@ -22,6 +24,10 @@ class Mysql extends Database {
 		if( ! class_exists( "\\mysqli" ) ) {
 			throw new Exception( "MySQL PHP support not installed." );
 		}
+
+		$this->_connection  = null;
+		$this->_sql_strings = array();
+		$this->_statements  = array();
 
 		$this->setRandom( "rand()" );
 		$this->setTrue( "1" );
@@ -45,6 +51,23 @@ class Mysql extends Database {
 			throw new Exception( "Unable to connect to database: ".
 				"\"".$this->_connection->connect_error."\"" );
 		}
+	}
+
+	/**
+	 * Caches prepared statements so they don't need to be processed
+	 * on subsequent runs.
+	 *
+	 * @param   string       SQL Statement to prepare/retrieve
+	 * @return  mysqli_stmt  Mysql prepared statement
+	 */
+	protected function getStatement( $sql ) {
+		$index = array_search( $sql, $this->_sql_strings );
+		if( $index === false ) {
+			$index                      = count( $this->_sql_strings );
+			$this->_sql_strings[$index] = $sql;
+			$this->_statements[$index]  = $this->_connection->prepare( $sql );
+		}
+		return $this->_statements[$index];
 	}
 
 	/**
@@ -294,118 +317,110 @@ class Mysql extends Database {
 		return array( $sql, $params );
 	}
 
-
 	/**
-	 * This method exists to attempt to format the unparameterized values into
-	 * something acceptable when inserting them into the SQL statement.
+	 * Binds the paramters to the prepared statement.
 	 *
-	 * @param  mixed  The value being formatted
-	 * @return mixed  The formatted value
+	 * @param   mysqli_stmt  The MySQL statement to bind the paramters to.
+	 * @param   array        The parameter values for the sql statement.
+	 * @return  null
 	 */
-	protected function formatValue( $value ) {
+	protected function bindParamters( \mysqli_stmt $statement, array $params ) {
 
-		$return = null;
+		//Only if there are parameters present
+		if( count( $params ) > 0 ) {
 
-		switch( gettype( $value ) ) {
-			case( "boolean" ):
-				if( $value === true ) {
-					$return = $this->getTrue();
-				} else {
-					$return = $this->getFalse();
+			$bind_param_arguments = array();
+
+			$types = "";
+			foreach( $params as $value ) {
+				if( is_double( $value )  ) {
+					$types .= "d";
 				}
-				break;
-			case( "integer" ):
-			case( "double" ):
-				$return = $value;
-				break;
-			case( "string" ):
-				$return = "'" . $this->_connection->real_escape_string( $value ) . "'";
-				break;
-			case( "array" ):
-				throw new Exception( "Array passed in to runSQL as a parameter value." );
-				break;
-			case( "object" ):
-				if( ! method_exists( $param, "__toString" ) ) {
-					throw new Exception( "Object (with no __toString() method) passed in to runSQL as a parameter value." );
+				else if( is_integer( $value ) ) {
+					$types .= "i";
 				}
-				$query->bind_param( "s", $param->__toString() );
-				break;
-			case( "resource" ):
-				throw new Exception( "Resource passed in to runSQL as a parameter value." );
-				break;
-			case( "NULL" ):
-				$return = "NULL";
-				break;
-			case( "unknown type" ):
-			default:
-				throw new Exception( "Unknown type passed in to runSQL as a parameter value." );
-		}
-
-		return $return;
-	}
-
-	/**
-	 * This method exists, sadly, to detroy the parameterized SQL and insert
-	 * the parameterized values directly into the SQL string. Abstracting true
- 	 * prepared statements using mysqli currently being worked on.
-	 *
-	 * @param  string  The SQL statement to ruin.
-	 * @param  array   The parameter values to plug into the sql statement.
-	 * @return string  The ruined SQL statement.
-	 */
-	protected function ruinTheParamaterizedSQL( $sql, $params ) {
-
-		if( count( $params ) == 0 && strstr( $sql, "?" ) === false ) {
-			return $sql;
-		}
-
-		if( count( $params ) != substr_count( $sql, "?" ) ) {
-			echo "<prE>";var_dump( $params );echo "</pre>";
-			throw new Exception( "Number of placeholders (".substr_count( $sql, "?" ).
-					") does not equal number of paramters given (".count( $params ).")<pre>\n\n$sql</pre>" );
-		}
-
-		$return = "";
-
-		$count = 0;
-		foreach( explode( "?", $sql ) as $token ) {
-			if( $count == 0 ) {
-				$return = $token;
-			} else {
-				$return .= $this->formatValue($params[$count-1]).$token;
+				else {
+					$types .= "s";
+				}
 			}
-			$count++;
+
+			//Only here because the arugments *can't* be passed by value
+			$referencingArray = array();
+			foreach( $params as $key => $value ) {
+				$$value = $value;
+				$referencingArray[$key] = &$$value;
+			}
+
+			$bind_param_arguments = array_merge( array($types), $referencingArray );
+
+			$method_name = "bind_param";
+			$bind_param = array( $statement, $method_name );
+			call_user_func_array( $bind_param, $bind_param_arguments );
 		}
-		return $return;
 	}
 
 	/**
 	 * This method is where the constructed SQL statement is actually executed against
-	 * the database.
+	 * the database and the correct return value is assessed and returned.
+	 *
+	 * @param  mysqli_stmt  The SQL statement to execute.
+	 * @return mixed        If select: Resulting recordset; If Insert/Update/Delete: Success boolean.
+	 */
+	protected function executePreparedStatement( \mysqli_stmt $statement ) {
+
+		$success = $statement->execute();
+
+		//-1 is returned on selects, valid numbers on insert/update/delete:
+		if( $statement->affected_rows > -1 ) {
+			return $success;
+		}
+
+		//Create array containing resulting field names:
+		$meta = $statement->result_metadata();
+		$results = array();
+		while( $field = $meta->fetch_field() ) {
+			$results[] = $field->name;
+		}
+
+		//Create array of pointers to to dynamic variables to hold results
+		//because ->bind_result() requires references:
+		$bind = array();
+		foreach( $results as $field_name ) {
+			$$field_name = $field_name;
+			$bind[$field_name] = &$$field_name;
+		}
+
+		$method_name = "bind_result";
+		$method = array( $statement, $method_name );
+
+		call_user_func_array( $method, $bind );
+
+		//build the recordset:
+		$recordset = array();
+		while( $statement->fetch() ) {
+			$row = array();
+			foreach( $results as $field_name ) {
+				$row[$field_name] = $bind[$field_name];
+			}
+			$recordset[] = $row;
+		}
+
+		return $recordset;
+
+	}
+
+	/**
+	 * Method that wraps the overhead of binding the paramters and return values,
+	 * as well as executing the sql statement.
 	 *
 	 * @param  string  The SQL statement to execute.
 	 * @param  array   The parameter values for the sql statement.
 	 * @return mixed   If select: Resulting recordset; If Insert/Update/Delete: Success boolean.
 	 */
-	public function runSQL( $sql, $params ) {
-		$sql = $this->ruinTheParamaterizedSQL( $sql, $params );
-
-		$result = $this->_connection->query( $sql );
-
-		if( $result === false ) {
-			throw new Exception( $this->_connection->error );
-		}
-
-		$return = array();
-
-		if( is_bool( $result ) ) {
-			return $result;
-		}
-
-		while( $row = $result->fetch_assoc() ) {
-			$return[] = $row;
-		}
-		return $return;
+	public function runSQL( $sql, array $params ) {
+		$statement = $this->getStatement( $sql );
+		$this->bindParamters( $statement, $params );
+		return $this->executePreparedStatement( $statement );
 	}
 
 	/**
