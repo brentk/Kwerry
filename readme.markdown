@@ -38,7 +38,10 @@ At this point the object model is fully built and represents all records in the 
 //Display the number of book records:
 echo count( $books ) . " books found:\n";
 
-//and iterate through all books, outputing the title:
+//display the title of the first/current record:
+echo $books->title . "\n";
+
+//iterate through all books, outputing the title:
 foreach( $books as $book ) {
 	echo $book->title . "\n";
 }
