@@ -69,6 +69,11 @@ class Kwerry implements arrayaccess, iterator, countable {
 	private $_isAddingNew = false;
 
 	/**
+	 * @var  string  Any additional directory to lock for models in.
+	 */
+	private static $_modelDirectories = array();
+
+	/**
 	 * @var  string  Which connection this model is using.
 	 */
 	private $_connectionName;
@@ -82,6 +87,15 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @staticva  array  Contains all active connections.
 	 */
 	public static $_connections = array();
+
+	/**
+	 * Add another directory to look for models in.
+	 *
+	 * @param  string  Directory path.
+	 */
+	public static function addModelDirectory( $dir ) {
+		self::$_modelDirectories[] = $dir;
+	}
 
 	/**
 	 * Adds connectio  informatio  to the object's static array of
@@ -149,22 +163,27 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 */
 	static function model( $tableName, $connectionName = "default" ) {
 
+		$kwerry = null;
+
 		//If there's a model in the path, load that
-		foreach( explode( PATH_SEPARATOR, get_include_path() ) as $path ) {
+		$paths = explode( PATH_SEPARATOR, get_include_path() );
+		$paths = array_merge( self::$_modelDirectories, $paths );
+		foreach( $paths as $path ) {
 
-			$full_path = "{$path}/Kwerry/{$tableName}.php";
-
+			$full_path = "{$path}/{$tableName}.php";
 			if( file_exists( $full_path ) ) {
 				require_once( $full_path );
 				if( class_exists( $tableName ) ) {
 					$kwerry = new $tableName( $connectionName );
-					return $kwerry;
 				}
 			}
 		}
 
 		//If not, create one on the fly
-		$kwerry = new Kwerry( $tableName, $connectionName );
+		if( is_null( $kwerry ) ) {
+			$kwerry = new Kwerry( $connectionName );
+		}
+		$kwerry->init( $tableName );
 		return $kwerry;
 	}
 
@@ -233,7 +252,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @throws  Exception  Primary key not found in requested table.
 	 * @return  null
 	 */
-	protected function buildDataModel( $tableName ) {
+	protected function init( $tableName ) {
 		$table = new Kwerry\Table();
 		$table->setName( $tableName );
 		$this->setTable( $table );
@@ -249,9 +268,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @param  string  Name of table to build model for
 	 * @param  string  Database connection to use.
 	 */
-	function __construct( $tableName, $connectionName ) {
+	function __construct( $connectionName ) {
 		$this->_connectionName = $connectionName;
-		$this->buildDataModel( $tableName );
 		$this->_limit = null;
 		$this->_offset = null;
 		$this->isDirty( true );
