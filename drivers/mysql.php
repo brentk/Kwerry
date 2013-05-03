@@ -171,7 +171,7 @@ class Mysql extends Database {
 		$records = $this->runSQL( $sql, array( $table->getName() ) );
 
 		foreach( $records as $record ) {
-			$foreignKey = new Relationship();
+			$foreignKey = new Relationship( $table );
 			$foreignKey->setLocalColumn( $record["local_column"] );
 			$foreignKey->setForeignTable( $record["foreign_table"] );
 			$foreignKey->setForeignColumn( $record["foreign_column"] );
@@ -202,7 +202,7 @@ class Mysql extends Database {
 		$records = $this->runSQL( $sql, array( $table->getName() ) );
 
 		foreach( $records as $record ) {
-			$referencedKey = new Relationship();
+			$referencedKey = new Relationship( $table );
 			$referencedKey->setLocalColumn( $record["foreign_column"] );
 			$referencedKey->setForeignTable( $record["local_table"] );
 			$referencedKey->setForeignColumn( $record["local_column"] );

@@ -203,7 +203,7 @@ class Postgresql extends Database {
 
 		if( $foreignKeys !== false ) {
 			foreach( $foreignKeys as $record ) {
-				$foreignKey = new Relationship();
+				$foreignKey = new Relationship( $table );
 				$foreignKey->setLocalColumn( $record[ "fkcol" ] );
 				$foreignKey->setForeignTable( $record[ "reftab" ] );
 				$foreignKey->setForeignColumn( $record[ "refcol" ] );
@@ -248,7 +248,7 @@ class Postgresql extends Database {
 		$references = pg_fetch_all( $result );
 		if( $references !== false ) {
 			foreach( $references as $reference ) {
-				$referencedColumn = new Relationship();
+				$referencedColumn = new Relationship( $table );
 				$referencedColumn->setLocalColumn( $reference[ "refcol" ] );
 				$referencedColumn->setForeignTable( $reference[ "fktab" ] );
 				$referencedColumn->setForeignColumn( $reference[ "fkcol" ] );
