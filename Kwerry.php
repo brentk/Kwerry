@@ -279,15 +279,16 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @param   string  name of table
 	 * @return  Kwerry  requested model object
 	 */
-	private function lazyLoad( $tableName, $their_column, $my_column ) {
+	private function lazyLoad( Kwerry\Relationship $relationship ) {
 
-		$value = $this->$my_column;
+		$localColumn = $relationship->getLocalColumn();
+		$value = $this->$localColumn;
 
-		$hash = serialize( array( $tableName, $their_column, $value ) );
+		$hash = serialize( array( $relationship->getForeignTable(), $relationship->getForeignColumn(), $value ) );
 
 		if( ! array_key_exists( $hash, $this->_relationship ) ) {
-			$method = "where".$their_column;
-			$this->_relationship[ $hash ] = Kwerry::model( $tableName );
+			$method = "where".$relationship->getForeignColumn();
+			$this->_relationship[ $hash ] = Kwerry::model( $relationship->getForeignTable() );
 			$this->_relationship[ $hash ]->$method( $value );
 		}
 
@@ -631,7 +632,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 		//See if they're requesting a related table
 		foreach( $this->getTable()->getRelationships() as $relationship ) {
 			if( $relationship->getAlias() == $name ) {
-				$foreignTable = $this->lazyLoad( $name, $relationship->getForeignColumn(), $relationship->getLocalColumn() );
+				$foreignTable = $this->lazyLoad( $relationship );
 				return( $foreignTable );
 			}
 		}
