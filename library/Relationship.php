@@ -1,4 +1,10 @@
 <?php
+/**
+ * Support class for tracking table information.
+ *
+ * @author   Brent Kelly <brenttkelly@gmail.com>
+ * @package  Kwerry
+ */
 namespace Kwerry;
 
 class Relationship {
@@ -28,13 +34,32 @@ class Relationship {
 	protected $_foreignColumn;
 
 	/**
+	 * Sets the parent table reference.
+	 *
+	 * @param   Kwerry/Table  Reference to parent table.
+	 * @return  null
+	 */
+	public function setParentTable( Table $parentTable ) {
+		$this->_parentTable = $parentTable;
+	}
+
+	/**
+	 * Gets the parent table reference.
+	 *
+	 * @return  Kwerry/Table  Reference to parent table.
+	 */
+	public function getParentTable() {
+		return $this->_parentTable;
+	}
+
+	/**
 	 * Constructor.
 	 *
 	 * @param   Kwerry\Table         Reference to parent table that this relationship belongs to.
 	 * @return  Kwerry\Relationship  Instance of this object.
 	 */
 	public function __construct( Table $parentTable ) {
-		$this->_parentTable = $parentTable;
+		$this->setParentTable( $parentTable );
 	}
 
 	/**
