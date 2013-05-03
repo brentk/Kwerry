@@ -16,6 +16,11 @@ class Relationship {
 	protected $_parentTable;
 
 	/**
+	 * @var  string  Alias used to reference this relationship for foreign table. Defaults to table name.
+	 */
+	protected $_alias;
+
+	/**
 	 * Name of column in this table that relates to a column in another table.
 	 * @var string
 	 */
@@ -50,6 +55,25 @@ class Relationship {
 	 */
 	public function getParentTable() {
 		return $this->_parentTable;
+	}
+
+	/**
+	 * Sets the alias for the foreign table..
+	 *
+	 * @param  string  Alias of the foreign table
+	 * @return  null
+	 */
+	public function setAlias( $alias ) {
+		$this->_alias = $alias;
+	}
+
+	/**
+	 * Gets the alias for the foreign table..
+	 *
+	 * @return  string  Alias of the foreign table
+	 */
+	public function getAlias() {
+		return $this->_alias;
 	}
 
 	/**
@@ -98,6 +122,11 @@ class Relationship {
 	 */
 	public function setForeignTable( $foreignTable ) {
 		$this->_foreignTable = $foreignTable;
+
+		//If there's no alias so far, default it to the table name.
+		if( ! $this->getAlias() ) {
+			$this->setAlias( $foreignTable );
+		}
 	}
 
 	/**

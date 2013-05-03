@@ -630,7 +630,7 @@ class Kwerry implements arrayaccess, iterator, countable {
 
 		//See if they're requesting a related table
 		foreach( $this->getTable()->getRelationships() as $relationship ) {
-			if( $relationship->getForeignTable() == $name ) {
+			if( $relationship->getAlias() == $name ) {
 				$foreignTable = $this->lazyLoad( $name, $relationship->getForeignColumn(), $relationship->getLocalColumn() );
 				return( $foreignTable );
 			}
