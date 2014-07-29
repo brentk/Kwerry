@@ -116,7 +116,7 @@ class Postgresql extends Database {
 				return constant( "DATA_TYPE_BOOL" );
 				break;
 			default:
-				throw new Exception( "Unknown data type \"{$type}\"." );
+				throw new \Exception( "Unknown data type \"{$type}\"." );
 		}
 
 	}
