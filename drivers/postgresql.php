@@ -1,4 +1,4 @@
-<?
+<?php
 /**
  * This is the Kwerry driver for PostgreSQL.
  *

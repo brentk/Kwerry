@@ -1,4 +1,4 @@
-<?
+<?php
 /**
  * Kwerry. A small, introspection based PHP ORM.
  *

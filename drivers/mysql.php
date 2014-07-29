@@ -1,4 +1,4 @@
-<?
+<?php
 /**
  * This is the Kwerry driver for MySQL. This currently doesn't
  * properly parameterize the SQL that ultimately gets sent to
