@@ -104,9 +104,11 @@ class Postgresql extends Database {
 				return constant( "DATA_TYPE_TIME" );
 				break;
 			case( "timestamp" ):
+			case( "timestamptz" ):
 				return constant( "DATA_TYPE_STAMP" );
 				break;
 			case( "numeric" ):
+			case( "float8" ):
 				return constant( "DATA_TYPE_NUMERIC" );
 				break;
 			case( "bytea" ):
