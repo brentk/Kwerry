@@ -166,7 +166,7 @@ Update, insert, and delete are also available, and are implemented via a pattern
 
 ```php
 //Insert a new book:
-$book = Kwerry::model( "books" )->addnew;
+$book = Kwerry::model( "books" )->addnew();
 $book->title         = "The Very Hungry Caterpillar";
 $book->author_id     = Kwerry::model( "author" )->whereName( "Eric Carle" )->id;
 $book->yearpublished = 1970;
