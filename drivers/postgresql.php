@@ -34,7 +34,7 @@ class Postgresql extends Database {
 	public function __construct() {
 
 		if( ! function_exists( "pg_connect" ) ) {
-			throw new Exception( "PostgreSQL PHP support not installed." );
+			throw new \Exception( "PostgreSQL PHP support not installed." );
 		}
 		$this->setRandom( "random()" );
 		$this->setTrue( "t" );
