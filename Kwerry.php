@@ -31,12 +31,12 @@ class Kwerry implements arrayaccess, iterator, countable {
 	/**
 	 * @var  array  Array containing all where clauses added to the current model's query.
 	 */
-	public $_where;
+	public $_where = array();
 
 	/**
 	 * @var  array  Array containing all sort (order by) clauses added.
 	 */
-	public $_order;
+	public $_order = array();
 
 	/**
 	 * @var  integer  Number of records to limit the current model's query to.
@@ -142,8 +142,8 @@ class Kwerry implements arrayaccess, iterator, countable {
 	 * @return  null
 	*/
 	public function clear() {
-		$this->_where		= NULL;
-		$this->_order		= NULL;
+		$this->_where		= array();
+		$this->_order		= array();
 		$this->_isAddingNew	= false;
 		$this->_currentRow	= 0;
 		$this->_relationship	= array();

@@ -72,19 +72,19 @@ class Database {
 	public function introspection( Table $table ) {
 		throw new \Exception( get_called_class()."::introspection not implemented!" );
 	}
-	public function execute( Kwerry $kwerry ) {
+	public function execute( \Kwerry $kwerry ) {
 		throw new \Exception( get_called_class()."::execute not implemented!" );
 	}
 	public function runSQL( $sql, array $params ) {
 		throw new \Exception( get_called_class()."::runSQL not implemented!" );
 	}
-	public function insert( array $update_buffer, Kwerry $kwerry ) {
+	public function insert( array $update_buffer, \Kwerry $kwerry ) {
 		throw new \Exception( get_called_class()."::insert not implemented!" );
 	}
-	public function update( array $update_buffer, Kwerry $kwerry ) {
+	public function update( array $update_buffer, \Kwerry $kwerry ) {
 		throw new \Exception( get_called_class()."::update not implemented!" );
 	}
-	public function delete( Kwerry $kwerry ) {
+	public function delete( \Kwerry $kwerry ) {
 		throw new \Exception( get_called_class()."::delete not implemented!" );
 	}
 
